@@ -5,25 +5,43 @@ router = APIRouter(tags=["Posts"])
 
     
 @router.get("/posts")
-async def get_posts():
-    try:
-        response = supabase.table("posts").select("*").order("created_at", desc=True).execute()
-        posts = response.data
-        
-        with neo4j_driver.session() as session:
-            for post in posts:
-                # REPARACIÓN: Si el post existe pero no tiene user_id, se lo ponemos
-                session.run("""
-                    MERGE (p:Post {id: $post_id})
-                    SET p.user_id = $username
-                """, post_id=str(post['id']), username=post['user_id'])
-                
-                post['likes_count'] = get_likes_count(post['id'])
+async def get_posts(current_user: str = None):
+    # 1. Traemos los posts de Supabase
+    response = supabase.table("posts").select("*").order("created_at", desc=True).execute()
+    posts = response.data
+
+    with neo4j_driver.session() as session:
+        for post in posts:
+            post_id = str(post['id'])
             
-        return posts
-    except Exception as e:
-        print(f"Error reparando posts: {e}")
-        return {"error": str(e)}, 500
+            # 2. Usamos OPTIONAL MATCH para que si no hay likes, devuelva 0 en lugar de un error/warning
+            count_res = session.run("""
+                OPTIONAL MATCH (:User)-[r:LIKED]->(p:Post {id: $pid})
+                RETURN count(r) AS c
+            """, pid=post_id).single()
+            
+            # Sobreescribimos el valor que venía de Supabase con el real de Neo4j
+            post['likes_count'] = count_res["c"]
+
+            # 3. Verificar si el usuario actual le dio like (para el corazón rojo)
+            if current_user:
+                like_check = session.run(
+                    "MATCH (u:User {username: $u})-[:LIKED]->(p:Post {id: $pid}) RETURN p",
+                    u=current_user, pid=post_id
+                ).single()
+                post['user_has_liked'] = like_check is not None
+                
+                # 4. Verificar si ya lo sigue (para el botón seguir)
+                follow_check = session.run(
+                    "MATCH (u:User {username: $u})-[:FOLLOWS]->(:User {username: $target}) RETURN u",
+                    u=current_user, target=post['user_id']
+                ).single()
+                post['already_following'] = follow_check is not None
+            else:
+                post['user_has_liked'] = False
+                post['already_following'] = False
+
+    return posts
 
 @router.post("/upload")
 async def upload_photo(file: UploadFile = File(...), user_id: str = Form(...)):
@@ -53,18 +71,4 @@ async def upload_photo(file: UploadFile = File(...), user_id: str = Form(...)):
         return {"message": "Post creado y registrado en grafo", "url": public_url}
     except Exception as e:
         print(f"Error en upload: {e}")
-        return {"error": str(e)}, 500
-
-@router.post("/like")
-async def like_post(post_id: str, username: str):
-    try:
-        add_like_to_graph(username, post_id)
-        nuevo_total = get_likes_count(post_id)
-        
-        return {
-            "status": "success", 
-            "post_id": post_id, 
-            "new_likes": nuevo_total 
-        }
-    except Exception as e:
         return {"error": str(e)}, 500

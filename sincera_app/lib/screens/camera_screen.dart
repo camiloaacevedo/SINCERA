@@ -1,7 +1,7 @@
+import '../services/api_service.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart'; // <--- IMPORTANTE
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 import '../theme.dart';
 
@@ -34,38 +34,23 @@ class _CameraScreenState extends State<CameraScreen> {
   }
 
   Future<void> _uploadImage(File imageFile) async {
-    String miIpDeArch = "192.168.1.24";
+    // 1. Obtenemos el nombre de usuario de SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    final String miNombre = prefs.getString('username') ?? "anonimo";
 
-    try {
-      // 1. LEER EL NOMBRE DE USUARIO GUARDADO EN EL XIAOMI
-      final prefs = await SharedPreferences.getInstance();
-      final String? miNombre = prefs.getString('username');
+    // 2. Llamamos al servicio
+    final bool exito = await ApiService.uploadImage(imageFile.path, miNombre);
 
-      print("Subiendo foto de: ${miNombre ?? 'Anónimo'}");
-
-      var request = http.MultipartRequest(
-        'POST',
-        Uri.parse('http://$miIpDeArch:8000/upload'),
-      );
-
-      // 2. ENVIAR EL NOMBRE REAL AL SERVIDOR
-      // El servidor de Python ahora espera este campo 'user_id'
-      request.fields['user_id'] = miNombre ?? "anonimo";
-
-      request.files.add(
-        await http.MultipartFile.fromPath('file', imageFile.path),
-      );
-
-      var streamedResponse = await request.send();
-      var response = await http.Response.fromStream(streamedResponse);
-
-      if (response.statusCode == 200) {
-        print("¡ÉXITO! Foto en Supabase bajo el usuario: $miNombre");
-      } else {
-        print("Error del servidor: ${response.statusCode} - ${response.body}");
-      }
-    } catch (e) {
-      print("ERROR DE RED CRÍTICO: $e");
+    if (exito) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("¡Sincera publicada!")));
+    } else {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Error al subir la foto")));
     }
   }
 
@@ -85,7 +70,11 @@ class _CameraScreenState extends State<CameraScreen> {
                   top: 40,
                   left: 20,
                   child: IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                    icon: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 30,
+                    ),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ),
@@ -99,19 +88,24 @@ class _CameraScreenState extends State<CameraScreen> {
                         try {
                           await _initializeControllerFuture;
                           final image = await _controller!.takePicture();
-                          
-                          // Mostramos un pequeño aviso de que se está subiendo
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("Subiendo a Sincera..."), duration: Duration(seconds: 1)),
-                            );
-                          }
 
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Subiendo a Sincera..."),
+                              duration: Duration(seconds: 1),
+                            ),
+                          );
+
+                          // Llamamos a la función de subir
                           await _uploadImage(File(image.path));
-                          
-                          if (mounted) Navigator.pop(context);
+
+                          if (!mounted) return;
+                          Navigator.pop(
+                            context,
+                          ); // Cerramos la cámara y volvemos al feed
                         } catch (e) {
-                          print("Error al capturar: $e");
+                          debugPrint("Error al capturar: $e");
                         }
                       },
                       child: const Icon(
@@ -125,7 +119,9 @@ class _CameraScreenState extends State<CameraScreen> {
               ],
             );
           }
-          return const Center(child: CircularProgressIndicator(color: SinceraTheme.accentNeon));
+          return const Center(
+            child: CircularProgressIndicator(color: SinceraTheme.accentNeon),
+          );
         },
       ),
     );

@@ -1,44 +1,33 @@
-# --- ARCHIVOS DE SEGURIDAD (CRÍTICO) ---
-Neo4j-API-Keys.txt
+# --- SECURITY ---
+neo.txt
 .env
 *.pem
 *.key
 secrets.json
 
-# --- PYTHON / BACKEND (sincera-backend) ---
-__pycache__/
+# --- BACKEND (Python) ---
+**/__pycache__/
 *.py[cod]
-*$py.class
-.venv/
-env/
-venv/
-ENV/
-build/
-dist/
-*.spec
+sincera_backend/.venv/
+sincera_backend/dist/
+sincera_backend/build/
 
-# --- FLUTTER / APP (sincera_app) ---
-.dart_tool/
-.flutter-plugins
-.flutter-plugins-dependencies
-.packages
-.pub-cache/
-.pub/
-build/
-
-# Ignorar plataformas que no usas para limpiar el repo
+# --- APP (Flutter) ---
 sincera_app/linux/
 sincera_app/macos/
 sincera_app/windows/
 sincera_app/web/
 
-# (Nota: Si en el futuro quieres compilar para Android, 
-# quita 'sincera_app/android/' de esta lista)
+sincera_app/build/
+sincera_app/.dart_tool/
+sincera_app/.pub/
+sincera_app/.flutter-plugins-dependencies
 
-# --- SISTEMA Y EDITORES ---
+# --- SYSTEM ---
 .DS_Store
 Thumbs.db
-.vscode/
 .idea/
-*.swp
+.vscode/
 *.log
+
+commands.txt

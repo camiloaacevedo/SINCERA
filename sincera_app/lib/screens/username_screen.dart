@@ -12,21 +12,19 @@ class UsernameScreen extends StatefulWidget {
 
 class _UsernameScreenState extends State<UsernameScreen> {
   final TextEditingController _controller = TextEditingController();
-  // RECUERDA: Usa tu IP 192.168.1.24
   final String miIp = "192.168.1.24"; 
 
-  // ESTA ES LA FUNCIÓN QUE FALTABA
   Future<void> _saveUsername() async {
     if (_controller.text.isEmpty) return;
 
     try {
-      // 1. Registramos en tu backend de Python
+      // 1. Registramos en el backend de Python
       final response = await http.post(
         Uri.parse('http://$miIp:8000/register?username=${_controller.text}'),
       );
 
       if (response.statusCode == 200) {
-        // 2. Guardamos en la memoria del Xiaomi para no preguntarlo más
+        // 2. Guardamos en la memoria del teléfono para no preguntarlo más
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('username', _controller.text);
 
@@ -36,7 +34,7 @@ class _UsernameScreenState extends State<UsernameScreen> {
         }
       }
     } catch (e) {
-      print("Error al registrar: $e");
+      debugPrint("Error al registrar: $e");
     }
   }
 
@@ -63,7 +61,7 @@ class _UsernameScreenState extends State<UsernameScreen> {
               style: const TextStyle(color: Colors.white, fontSize: 22),
               decoration: InputDecoration(
                 hintText: "tu_usuario",
-                hintStyle: TextStyle(color: Colors.white.withOpacity(0.2)),
+                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.2)),
                 enabledBorder: const UnderlineInputBorder(
                   borderSide: BorderSide(color: SinceraTheme.accentNeon),
                 ),
