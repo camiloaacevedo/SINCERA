@@ -1,211 +1,275 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../services/api_service.dart';
 import '../theme.dart';
 import '../screens/user_profile_screen.dart';
+import '../services/api_service.dart';
 
 class PostItem extends StatefulWidget {
-  final Map post;
-  final Function(int) onLikeUpdate;
+  final Map<String, dynamic> post;
+  final Function(int)? onLikeUpdate;
+  final String? currentUsername;
 
-  const PostItem({super.key, required this.post, required this.onLikeUpdate});
+  const PostItem({
+    super.key,
+    required this.post,
+    this.onLikeUpdate,
+    this.currentUsername,
+  });
 
   @override
   State<PostItem> createState() => _PostItemState();
 }
 
 class _PostItemState extends State<PostItem> {
-  late int localLikes;
-  bool isLiked = false;
-  late bool isFollowing; // Cambiado a late para asegurar inicialización
-  String? currentUsername;
+  final FocusNode _commentFocus = FocusNode();
+  final TextEditingController _commentController = TextEditingController();
+  late bool isFollowing;
+  bool isWriting = false;
 
   @override
   void initState() {
     super.initState();
-    localLikes = widget.post['likes_count'] ?? 0;
-    isFollowing = widget.post['already_following'] ?? false;
-    // Cargar el estado del like desde el backend
-    isLiked = widget.post['user_has_liked'] ?? false;
-    _loadUser();
+    // Forzamos la conversión a booleano por seguridad
+    isFollowing = widget.post['is_following'] == true;
+    _commentFocus.addListener(
+      () => setState(() => isWriting = _commentFocus.hasFocus),
+    );
   }
 
   @override
-  void didUpdateWidget(PostItem oldWidget) {
-    super.didUpdateWidget(oldWidget);
+  void dispose() {
+    // CORRECCIÓN: Cerramos el teclado al salir del post
+    _commentFocus.dispose();
+    _commentController.dispose();
+    super.dispose();
+  }
 
-    // Comparamos si los datos del post que llegan son diferentes a los anteriores
-    if (oldWidget.post['likes_count'] != widget.post['likes_count'] ||
-        oldWidget.post['user_has_liked'] != widget.post['user_has_liked']) {
+  @override
+  void didUpdateWidget(covariant PostItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // --- CAPA 2: REACCIÓN AL CAMBIO ---
+    // Si el Feed (padre) le manda datos nuevos al PostItem,
+    // actualizamos el color del botón inmediatamente.
+    if (widget.post['is_following'] != oldWidget.post['is_following']) {
       setState(() {
-        // Actualizamos el estado local con los nuevos datos del servidor
-        localLikes = widget.post['likes_count'] ?? 0;
-        isLiked = widget.post['user_has_liked'] ?? false;
-        isFollowing = widget.post['already_following'] ?? false;
+        isFollowing = widget.post['is_following'] == true;
       });
     }
   }
 
-  Future<void> _loadUser() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      currentUsername = prefs.getString('username');
-    });
-  }
-
   Future<void> _handleFollow() async {
-    if (currentUsername == null) return;
-    await ApiService.followUser(currentUsername!, widget.post['user_id']);
+  if (widget.currentUsername == null || widget.post['username'] == null) return;
+
+  // Guardamos el estado anterior por si la petición falla
+  final bool wasFollowing = isFollowing;
+
+  setState(() {
+    isFollowing = !isFollowing;
+  });
+
+  try {
+    if (wasFollowing) {
+      // SI YA LO SEGUÍA, AHORA LO DEJO DE SEGUIR
+      await ApiService.unfollowUser(
+        widget.currentUsername!,
+        widget.post['username'],
+      );
+      // Opcional: Mostrar un mensaje rápido
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Dejaste de seguir a ${widget.post['username']}")),
+      );
+    } else {
+      // SI NO LO SEGUÍA, AHORA LO SIGO
+      await ApiService.followUser(
+        widget.currentUsername!,
+        widget.post['username'],
+      );
+    }
+  } catch (e) {
+    // Si hay error en el servidor, revertimos el botón al estado anterior
+    if (mounted) {
+      setState(() {
+        isFollowing = wasFollowing;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Error en la conexión")),
+      );
+    }
+  }
+}
+
+  void _goToProfile() {
+    // Cerramos teclado antes de navegar
+    FocusScope.of(context).unfocus();
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            UserProfileScreen(username: widget.post['username']),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    String fecha = "";
-    if (widget.post['created_at'] != null) {
-      DateTime dt = DateTime.parse(widget.post['created_at']);
-      fecha = DateFormat('dd MMM, HH:mm').format(dt);
-    }
+    final bool isMe =
+        widget.currentUsername != null &&
+        widget.post['username'] != null &&
+        widget.currentUsername!.trim() == widget.post['username']!.trim();
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 25),
+      margin: const EdgeInsets.symmetric(vertical: 10),
       color: Colors.black,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ListTile(
-            leading: GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        UserProfileScreen(username: widget.post['user_id']),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Row(
+              children: [
+                const SizedBox(width: 16),
+                // CLIC SOLO EN FOTO
+                GestureDetector(
+                  onTap: _goToProfile,
+                  child: CircleAvatar(
+                    backgroundColor: SinceraTheme.accentNeon,
+                    backgroundImage: widget.post['avatar_url'] != null
+                        ? NetworkImage(widget.post['avatar_url'])
+                        : null,
+                    child: widget.post['avatar_url'] == null
+                        ? const Icon(Icons.person, color: Colors.black)
+                        : null,
                   ),
-                );
-              },
-              child: CircleAvatar(
-                radius: 20,
-                backgroundColor: SinceraTheme.accentNeon,
-                // 1. backgroundImage: Usamos '?' para que si 'profiles' es null, no explote
-                backgroundImage:
-                    (widget.post['profiles'] != null &&
-                        widget.post['profiles']['avatar_url'] != null)
-                    ? NetworkImage(widget.post['profiles']['avatar_url'])
-                    : null,
-                // 2. child: Solo mostramos el icono si no hay imagen (evita superposición)
-                child:
-                    (widget.post['profiles'] == null ||
-                        widget.post['profiles']['avatar_url'] == null)
-                    ? const Icon(Icons.person, size: 20, color: Colors.black)
-                    : null,
-              ),
-            ),
-            title: GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        UserProfileScreen(username: widget.post['user_id']),
-                  ),
-                );
-              },
-              child: Text(
-                widget.post['user_id'] ?? 'User',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
                 ),
-              ),
-            ),
-            subtitle: Text(
-              fecha,
-              style: const TextStyle(color: Colors.grey, fontSize: 11),
-            ),
-            // LÓGICA DE BOTÓN DINÁMICA
-            trailing: (currentUsername == widget.post['user_id'])
-                ? null
-                : isFollowing
-                ? const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    child: Text(
-                      "SIGUIENDO",
-                      style: TextStyle(
-                        color: Colors
-                            .white24, // Color más tenue para el estado pasivo
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
+                const SizedBox(width: 12),
+                // CLIC SOLO EN NOMBRE
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      GestureDetector(
+                        onTap: _goToProfile,
+                        child: Text(
+                          widget.post['username'] ?? "usuario",
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
-                    ),
-                  )
-                : TextButton(
-                    onPressed: () {
-                      setState(() {
-                        isFollowing = true;
-                      });
-                      _handleFollow();
-                    },
-                    child: const Text(
-                      "SEGUIR",
-                      style: TextStyle(
-                        color: SinceraTheme.accentNeon,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
+                      Text(
+                        DateFormat('dd MMM yyyy - HH:mm').format(
+                          DateTime.parse(widget.post['created_at']).toLocal(),
+                        ),
+                        style: const TextStyle(
+                          color: Colors.white24,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // BOTÓN SEGUIR (Traído a la derecha)
+                if (!isMe)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 16.0),
+                    child: GestureDetector(
+                      onTap: _handleFollow,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isFollowing
+                              ? Colors.transparent
+                              : SinceraTheme.accentNeon,
+                          borderRadius: BorderRadius.circular(20),
+                          border: isFollowing
+                              ? Border.all(color: Colors.white24)
+                              : null,
+                        ),
+                        child: Text(
+                          isFollowing ? "SIGUIENDO" : "SEGUIR",
+                          style: TextStyle(
+                            color: isFollowing ? Colors.white54 : Colors.black,
+                            // ...
+                          ),
+                        ),
                       ),
                     ),
                   ),
+              ],
+            ),
           ),
-
           AspectRatio(
             aspectRatio: 1,
             child: Image.network(widget.post['image_url'], fit: BoxFit.cover),
           ),
-
+          Row(
+            children: [
+              IconButton(
+                icon: Icon(
+                  widget.post['liked'] == true
+                      ? Icons.favorite
+                      : Icons.favorite_border,
+                  color: widget.post['liked'] == true
+                      ? Colors.red
+                      : Colors.white,
+                ),
+                onPressed: () => widget.onLikeUpdate?.call(
+                  widget.post['liked'] == true
+                      ? (widget.post['likes'] - 1)
+                      : (widget.post['likes'] + 1),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(
+                  Icons.chat_bubble_outline,
+                  color: Colors.white,
+                ),
+                onPressed: () => _commentFocus.requestFocus(),
+              ),
+            ],
+          ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          isLiked = !isLiked;
-                          localLikes = isLiked
-                              ? localLikes + 1
-                              : localLikes - 1;
-                        });
-                        widget.onLikeUpdate(localLikes);
-                      },
-                      child: Icon(
-                        isLiked ? Icons.favorite : Icons.favorite_border,
-                        color: isLiked ? Colors.red : Colors.white,
-                        size: 30,
-                      ),
-                    ),
-                    const SizedBox(width: 15),
-                    const Icon(Icons.chat_bubble_outline, color: Colors.white),
-                  ],
+                Text(
+                  "${widget.post['likes'] ?? 0} LIKES",
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  '$localLikes LIKES',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 13,
-                    color: Colors.white,
-                  ),
+                Stack(
+                  alignment: Alignment.centerLeft,
+                  children: [
+                    if (!isWriting && _commentController.text.isEmpty)
+                      const Text(
+                        "AÑADIR UN COMENTARIO...",
+                        style: TextStyle(
+                          color: Colors.white24,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    TextField(
+                      controller: _commentController,
+                      focusNode: _commentFocus,
+                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                        isDense: true,
+                      ),
+                    ),
+                  ],
                 ),
-                const TextField(
-                  style: TextStyle(color: Colors.white, fontSize: 14),
-                  decoration: InputDecoration(
-                    hintText: "Escribe un comentario...",
-                    hintStyle: TextStyle(color: Colors.white24),
-                    border: InputBorder.none,
-                  ),
-                ),
+                const SizedBox(height: 10),
               ],
             ),
           ),
