@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   // Centralizamos la IP.
@@ -40,8 +41,11 @@ class ApiService {
 
   // --- OBTENER DATOS DE PERFIL ---
   static Future<Map<String, dynamic>?> fetchProfile(String username) async {
+    final prefs = await SharedPreferences.getInstance();
+    final myName = prefs.getString('username') ?? "";
+
     try {
-      final url = '$baseUrl/profile/$username';
+      final url = '$baseUrl/profile/$username?current_user=$myName';
       final response = await http.get(Uri.parse(url));
 
       if (response.statusCode == 200) {
@@ -68,10 +72,10 @@ class ApiService {
   static Future<bool> uploadImage(String filePath, String username) async {
     try {
       var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/upload'));
-      
+
       // Enviamos el nombre del usuario
       request.fields['user_id'] = username;
-      
+
       // Adjuntamos el archivo
       request.files.add(await http.MultipartFile.fromPath('file', filePath));
 
@@ -88,6 +92,28 @@ class ApiService {
     } catch (e) {
       debugPrint("Error de red al subir imagen: $e");
       return false;
+    }
+  }
+
+  // --- REGISTRAR USUARIO ---
+  static Future<bool> registerUser(String username) async {
+    try {
+      final url = '$baseUrl/register?username=$username';
+      final response = await http.post(Uri.parse(url));
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint("Error en registerUser: $e");
+      return false;
+    }
+  }
+
+  // --- SEGUIR USUARIO ---
+  static Future<void> followUser(String follower, String following) async {
+    try {
+      final url = '$baseUrl/follow?follower=$follower&following=$following';
+      await http.post(Uri.parse(url));
+    } catch (e) {
+      debugPrint("Error en followUser: $e");
     }
   }
 }

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:http/http.dart' as http;
+import '../services/api_service.dart';
 import '../theme.dart';
+import '../screens/user_profile_screen.dart';
 
 class PostItem extends StatefulWidget {
   final Map post;
@@ -19,26 +20,24 @@ class _PostItemState extends State<PostItem> {
   bool isLiked = false;
   late bool isFollowing; // Cambiado a late para asegurar inicialización
   String? currentUsername;
-  final String miIp = "192.168.1.24";
 
   @override
-void initState() {
-  super.initState();
-  localLikes = widget.post['likes_count'] ?? 0;
-  isFollowing = widget.post['already_following'] ?? false;
-  // Cargar el estado del like desde el backend
-  isLiked = widget.post['user_has_liked'] ?? false; 
-  _loadUser();
-}
+  void initState() {
+    super.initState();
+    localLikes = widget.post['likes_count'] ?? 0;
+    isFollowing = widget.post['already_following'] ?? false;
+    // Cargar el estado del like desde el backend
+    isLiked = widget.post['user_has_liked'] ?? false;
+    _loadUser();
+  }
 
   @override
   void didUpdateWidget(PostItem oldWidget) {
     super.didUpdateWidget(oldWidget);
-    
+
     // Comparamos si los datos del post que llegan son diferentes a los anteriores
-    if (oldWidget.post['likes_count'] != widget.post['likes_count'] || 
+    if (oldWidget.post['likes_count'] != widget.post['likes_count'] ||
         oldWidget.post['user_has_liked'] != widget.post['user_has_liked']) {
-      
       setState(() {
         // Actualizamos el estado local con los nuevos datos del servidor
         localLikes = widget.post['likes_count'] ?? 0;
@@ -57,13 +56,7 @@ void initState() {
 
   Future<void> _handleFollow() async {
     if (currentUsername == null) return;
-    try {
-      final url =
-          'http://$miIp:8000/follow?follower=$currentUsername&following=${widget.post['user_id']}';
-      await http.post(Uri.parse(url));
-    } catch (e) {
-      debugPrint("Error al seguir: $e");
-    }
+    await ApiService.followUser(currentUsername!, widget.post['user_id']);
   }
 
   @override
@@ -81,13 +74,38 @@ void initState() {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ListTile(
-            leading: const CircleAvatar(
-              backgroundColor: SinceraTheme.accentNeon,
-              child: Icon(Icons.person, color: Colors.black),
+            leading: GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        UserProfileScreen(username: widget.post['user_id']),
+                  ),
+                );
+              },
+              child: const CircleAvatar(
+                backgroundColor: SinceraTheme.accentNeon,
+                child: Icon(Icons.person, color: Colors.black),
+              ),
             ),
-            title: Text(
-              widget.post['user_id'] ?? 'User',
-              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+            title: GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        UserProfileScreen(username: widget.post['user_id']),
+                  ),
+                );
+              },
+              child: Text(
+                widget.post['user_id'] ?? 'User',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
             ),
             subtitle: Text(
               fecha,
@@ -95,35 +113,36 @@ void initState() {
             ),
             // LÓGICA DE BOTÓN DINÁMICA
             trailing: (currentUsername == widget.post['user_id'])
-                ? null 
+                ? null
                 : isFollowing
-                    ? const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        child: Text(
-                          "SIGUIENDO",
-                          style: TextStyle(
-                            color: Colors.white24, // Color más tenue para el estado pasivo
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                      )
-                    : TextButton(
-                        onPressed: () {
-                          setState(() {
-                            isFollowing = true; 
-                          });
-                          _handleFollow();
-                        },
-                        child: const Text(
-                          "SEGUIR",
-                          style: TextStyle(
-                            color: SinceraTheme.accentNeon,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: Text(
+                      "SIGUIENDO",
+                      style: TextStyle(
+                        color: Colors
+                            .white24, // Color más tenue para el estado pasivo
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
                       ),
+                    ),
+                  )
+                : TextButton(
+                    onPressed: () {
+                      setState(() {
+                        isFollowing = true;
+                      });
+                      _handleFollow();
+                    },
+                    child: const Text(
+                      "SEGUIR",
+                      style: TextStyle(
+                        color: SinceraTheme.accentNeon,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
           ),
 
           AspectRatio(
@@ -142,7 +161,9 @@ void initState() {
                       onTap: () {
                         setState(() {
                           isLiked = !isLiked;
-                          localLikes = isLiked ? localLikes + 1 : localLikes - 1;
+                          localLikes = isLiked
+                              ? localLikes + 1
+                              : localLikes - 1;
                         });
                         widget.onLikeUpdate(localLikes);
                       },
