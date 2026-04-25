@@ -84,9 +84,21 @@ class _PostItemState extends State<PostItem> {
                   ),
                 );
               },
-              child: const CircleAvatar(
+              child: CircleAvatar(
+                radius: 20,
                 backgroundColor: SinceraTheme.accentNeon,
-                child: Icon(Icons.person, color: Colors.black),
+                // 1. backgroundImage: Usamos '?' para que si 'profiles' es null, no explote
+                backgroundImage:
+                    (widget.post['profiles'] != null &&
+                        widget.post['profiles']['avatar_url'] != null)
+                    ? NetworkImage(widget.post['profiles']['avatar_url'])
+                    : null,
+                // 2. child: Solo mostramos el icono si no hay imagen (evita superposición)
+                child:
+                    (widget.post['profiles'] == null ||
+                        widget.post['profiles']['avatar_url'] == null)
+                    ? const Icon(Icons.person, size: 20, color: Colors.black)
+                    : null,
               ),
             ),
             title: GestureDetector(

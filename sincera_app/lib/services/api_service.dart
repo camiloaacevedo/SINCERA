@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   // Centralizamos la IP.
@@ -40,13 +39,16 @@ class ApiService {
   }
 
   // --- OBTENER DATOS DE PERFIL ---
-  static Future<Map<String, dynamic>?> fetchProfile(String username) async {
-    final prefs = await SharedPreferences.getInstance();
-    final myName = prefs.getString('username') ?? "";
-
+  static Future<Map<String, dynamic>?> fetchProfile(
+    String username,
+    String? myUsername,
+  ) async {
     try {
-      final url = '$baseUrl/profile/$username?current_user=$myName';
-      final response = await http.get(Uri.parse(url));
+      final url = Uri.parse(
+        '$baseUrl/profile/$username?current_user=$myUsername',
+      );
+
+      final response = await http.get(url);
 
       if (response.statusCode == 200) {
         return json.decode(response.body);
@@ -54,6 +56,31 @@ class ApiService {
       return null;
     } catch (e) {
       debugPrint("Error en fetchProfile: $e");
+      return null;
+    }
+  }
+
+  // --- SET PROFILE PICTURE ---
+  static Future<String?> updateAvatar(String filePath, String username) async {
+    try {
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/upload_avatar'),
+      );
+
+      request.fields['username'] = username;
+      request.files.add(await http.MultipartFile.fromPath('file', filePath));
+
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['avatar_url']; // Devolvemos la nueva URL para actualizar la UI
+      }
+      return null;
+    } catch (e) {
+      debugPrint("Error subiendo avatar: $e");
       return null;
     }
   }

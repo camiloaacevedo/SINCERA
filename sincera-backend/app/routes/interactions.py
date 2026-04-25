@@ -20,10 +20,10 @@ async def get_following_feed(username: str):
 
             # 2. Buscamos los posts en Supabase
             response = supabase.table("posts")\
-                .select("*")\
-                .in_("user_id", amigos)\
-                .order("created_at", desc=True)\
-                .execute()
+    .select("*, profiles(avatar_url)")\
+    .in_("user_id", amigos)\
+    .order("created_at", desc=True)\
+    .execute()
             
             posts_data = response.data
             

@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, UploadFile, File, Form
 from app.database import supabase, neo4j_driver, add_user_to_graph
 
 router = APIRouter(tags=["Users"])
@@ -16,6 +16,9 @@ async def register_user(username: str):
 @router.get("/profile/{username}")
 async def get_profile(username: str, current_user: str = None):
     try:
+        user_res = supabase.table("profiles").select("avatar_url").eq("username", username).single().execute()
+        avatar_url = user_res.data.get("avatar_url") if user_res.data else None
+
         with neo4j_driver.session() as session:
             # 1. Consultamos datos generales del perfil (Esto ya lo tienes)
             query = """
@@ -62,6 +65,7 @@ async def get_profile(username: str, current_user: str = None):
 
             return {
                 "username": username,
+                "avatar_url": avatar_url,
                 "followers_count": result["followers_count"],
                 "following_count": result["following_count"],
                 "posts_count": len(photos),
@@ -85,4 +89,31 @@ async def follow_user(follower: str, following: str):
             """, follower=follower, following=following)
         return {"status": "success"}
     except Exception as e:
+        return {"error": str(e)}, 500
+    
+@router.post("/upload_avatar")
+async def upload_avatar(file: UploadFile = File(...), username: str = Form(...)):
+    try:
+        # Definimos el nombre del archivo (siempre el mismo por usuario para no llenar el storage)
+        file_path = f"profile_{username}.jpg"
+        file_content = await file.read()
+        
+        # 1. Subir al Storage (Bucket 'avatars')
+        # Usamos upsert=True para que si ya existe, la reemplace
+        supabase.storage.from_("avatars").upload(
+            path=file_path, 
+            file=file_content, 
+            file_options={"x-upsert": "true", "content-type": "image/jpeg"}
+        )
+        
+        # 2. Obtener la URL pública
+        public_url = supabase.storage.from_("avatars").get_public_url(file_path)
+        
+        # 3. Actualizar la tabla 'profiles' en Supabase
+        supabase.table("profiles").update({"avatar_url": public_url}).eq("username", username).execute()
+        
+        return {"status": "success", "avatar_url": public_url}
+        
+    except Exception as e:
+        print(f"Error en upload_avatar: {e}")
         return {"error": str(e)}, 500

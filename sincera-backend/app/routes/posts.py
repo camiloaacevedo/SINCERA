@@ -7,7 +7,7 @@ router = APIRouter(tags=["Posts"])
 @router.get("/posts")
 async def get_posts(current_user: str = None):
     # 1. Traemos los posts de Supabase
-    response = supabase.table("posts").select("*").order("created_at", desc=True).execute()
+    response = supabase.table("posts").select("*, profiles(avatar_url)").order("created_at", desc=True).execute()
     posts = response.data
 
     with neo4j_driver.session() as session:

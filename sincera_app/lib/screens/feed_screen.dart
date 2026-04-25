@@ -1,6 +1,7 @@
 import '../services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:image_picker/image_picker.dart';
 import '../widgets/post_item.dart';
 import '../theme.dart';
 import 'post_view_screen.dart';
@@ -35,6 +36,96 @@ class _FeedScreenState extends State<FeedScreen>
     _inicializarApp();
   }
 
+  void _verFotoGrande(String? url) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: GestureDetector(
+          onTap: () => Navigator.pop(context),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: url != null
+                    ? Image.network(url, fit: BoxFit.contain)
+                    : Container(
+                        height: 250,
+                        width: 250,
+                        color: SinceraTheme.accentNeon,
+                        child: const Icon(
+                          Icons.person,
+                          size: 120,
+                          color: Colors.black,
+                        ),
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _seleccionarOrigenImagen() async {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.black,
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(
+              Icons.camera_alt,
+              color: SinceraTheme.accentNeon,
+            ),
+            title: const Text("Cámara", style: TextStyle(color: Colors.white)),
+            onTap: () {
+              Navigator.pop(context);
+              _cambiarFotoPerfil(ImageSource.camera);
+            },
+          ),
+          ListTile(
+            leading: const Icon(
+              Icons.photo_library,
+              color: SinceraTheme.accentNeon,
+            ),
+            title: const Text("Galería", style: TextStyle(color: Colors.white)),
+            onTap: () {
+              Navigator.pop(context);
+              _cambiarFotoPerfil(ImageSource.gallery);
+            },
+          ),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _cambiarFotoPerfil(ImageSource fuente) async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(
+      source: fuente,
+      imageQuality: 50,
+    );
+
+    if (image != null && currentUsername != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Actualizando foto de perfil...")),
+      );
+
+      final String? nuevaUrl = await ApiService.updateAvatar(
+        image.path,
+        currentUsername!,
+      );
+
+      if (nuevaUrl != null) {
+        _fetchProfileData(); // Recargamos los datos para ver la foto nueva
+      }
+    }
+  }
+
   Future<void> _inicializarApp() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() => currentUsername = prefs.getString('username'));
@@ -67,9 +158,10 @@ class _FeedScreenState extends State<FeedScreen>
 
   Future<void> _fetchProfileData() async {
     if (currentUsername == null) return;
-
-    final data = await ApiService.fetchProfile(currentUsername!);
-
+    final data = await ApiService.fetchProfile(
+      currentUsername!,
+      currentUsername,
+    );
     if (mounted && data != null) {
       setState(() {
         profileData = data;
@@ -77,7 +169,6 @@ class _FeedScreenState extends State<FeedScreen>
     }
   }
 
-  // --- VISTA DE PERFIL ---
   Widget _buildProfileTab() {
     if (profileData == null) {
       return const Center(
@@ -85,15 +176,47 @@ class _FeedScreenState extends State<FeedScreen>
       );
     }
     final photos = profileData!['photos'] as List;
+    final String? avatarUrl = profileData!['avatar_url'];
 
     return ListView(
       children: [
         const SizedBox(height: 30),
         Center(
-          child: CircleAvatar(
-            radius: 45,
-            backgroundColor: SinceraTheme.accentNeon,
-            child: const Icon(Icons.person, size: 50, color: Colors.black),
+          child: Stack(
+            children: [
+              GestureDetector(
+                onTap: () => _verFotoGrande(avatarUrl),
+                child: CircleAvatar(
+                  radius: 45,
+                  backgroundColor: SinceraTheme.accentNeon,
+                  backgroundImage: avatarUrl != null
+                      ? NetworkImage(avatarUrl)
+                      : null,
+                  child: avatarUrl == null
+                      ? const Icon(Icons.person, size: 50, color: Colors.black)
+                      : null,
+                ),
+              ),
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: GestureDetector(
+                  onTap: _seleccionarOrigenImagen,
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: const BoxDecoration(
+                      color: SinceraTheme.accentOrange,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.edit,
+                      size: 18,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 15),
@@ -111,11 +234,7 @@ class _FeedScreenState extends State<FeedScreen>
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            _buildStat(
-              "Posts",
-              profileData!['posts_count'].toString(),
-              [],
-            ), // Lista vacía para posts por ahora
+            _buildStat("Posts", profileData!['posts_count'].toString(), []),
             _buildStat(
               "Seguidores",
               profileData!['followers_count'].toString(),
@@ -145,14 +264,11 @@ class _FeedScreenState extends State<FeedScreen>
           itemCount: photos.length,
           itemBuilder: (context, index) => GestureDetector(
             onTap: () {
-              // AQUÍ ES DONDE VA EL CARRUSEL
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => PostViewScreen(
-                    posts: photos, // Usamos la lista de fotos del perfil
-                    initialIndex: index, // Empezamos en la que el usuario tocó
-                  ),
+                  builder: (context) =>
+                      PostViewScreen(posts: photos, initialIndex: index),
                 ),
               );
             },

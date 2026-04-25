@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:image_picker/image_picker.dart';
+import 'post_view_screen.dart';
 import '../services/api_service.dart';
 import '../theme.dart';
-import 'post_view_screen.dart';
 
 class UserProfileScreen extends StatefulWidget {
-  final String username; // El nombre del perfil que queremos ver
+  final String username;
 
   const UserProfileScreen({super.key, required this.username});
 
@@ -40,13 +41,106 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   Future<void> _cargarPerfil() async {
-    final data = await ApiService.fetchProfile(widget.username);
+    final data = await ApiService.fetchProfile(widget.username, myUsername);
     if (mounted) {
       setState(() {
         profileData = data;
         isLoading = false;
       });
     }
+  }
+
+  // Función para elegir entre cámara o galería
+  Future<void> _seleccionarOrigenImagen() async {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.black,
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(
+              Icons.camera_alt,
+              color: SinceraTheme.accentNeon,
+            ),
+            title: const Text("Cámara", style: TextStyle(color: Colors.white)),
+            onTap: () {
+              Navigator.pop(context);
+              _cambiarFotoPerfil(ImageSource.camera);
+            },
+          ),
+          ListTile(
+            leading: const Icon(
+              Icons.photo_library,
+              color: SinceraTheme.accentNeon,
+            ),
+            title: const Text("Galería", style: TextStyle(color: Colors.white)),
+            onTap: () {
+              Navigator.pop(context);
+              _cambiarFotoPerfil(ImageSource.gallery);
+            },
+          ),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _cambiarFotoPerfil(ImageSource fuente) async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(
+      source: fuente,
+      imageQuality: 50,
+    );
+
+    if (!mounted) return;
+
+    if (image != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Actualizando foto de perfil...")),
+      );
+
+      final String? nuevaUrl = await ApiService.updateAvatar(
+        image.path,
+        widget.username,
+      );
+
+      if (nuevaUrl != null) {
+        _cargarPerfil();
+      }
+    }
+  }
+
+  void _verFotoGrande(String? url) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: GestureDetector(
+          onTap: () => Navigator.pop(context),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: url != null
+                    ? Image.network(url, fit: BoxFit.contain)
+                    : Container(
+                        height: 250,
+                        width: 250,
+                        color: SinceraTheme.accentNeon,
+                        child: const Icon(
+                          Icons.person,
+                          size: 120,
+                          color: Colors.black,
+                        ),
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _mostrarLista(String titulo, List lista) {
@@ -75,7 +169,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 itemBuilder: (context, i) => ListTile(
                   onTap: () {
                     Navigator.pop(context);
-
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -131,20 +224,55 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   Widget _buildBody() {
     final photos = profileData!['photos'] as List;
     final bool alreadyFollowing = profileData!['already_following'] ?? false;
+    final String? avatarUrl = profileData!['avatar_url'];
+    final bool esMiPerfil = myUsername == widget.username;
 
     return ListView(
       children: [
         const SizedBox(height: 20),
-        const Center(
-          child: CircleAvatar(
-            radius: 40,
-            backgroundColor: SinceraTheme.accentNeon,
-            child: Icon(Icons.person, size: 45, color: Colors.black),
+        Center(
+          child: Stack(
+            children: [
+              // Avatar
+              GestureDetector(
+                onTap: () => _verFotoGrande(avatarUrl),
+                child: CircleAvatar(
+                  radius: 50,
+                  backgroundColor: SinceraTheme.accentNeon,
+                  backgroundImage: avatarUrl != null
+                      ? NetworkImage(avatarUrl)
+                      : null,
+                  child: avatarUrl == null
+                      ? const Icon(Icons.person, size: 50, color: Colors.black)
+                      : null,
+                ),
+              ),
+              // Botón de Edición (Lápiz)
+              if (esMiPerfil)
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: GestureDetector(
+                    onTap: _seleccionarOrigenImagen,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: const BoxDecoration(
+                        color: SinceraTheme.accentOrange,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.edit,
+                        size: 18,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
         const SizedBox(height: 15),
 
-        // LÓGICA DEL BOTÓN: Solo se muestra si el perfil NO es el mío
         if (myUsername != widget.username)
           Center(
             child: ElevatedButton(
@@ -162,14 +290,22 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               onPressed: () async {
                 if (myUsername != null) {
                   await ApiService.followUser(myUsername!, widget.username);
-                  _cargarPerfil(); // Recargar para actualizar contador y botón
+                  _cargarPerfil();
                 }
               },
               child: Text(alreadyFollowing ? "SIGUIENDO" : "SEGUIR"),
             ),
           )
         else
-          const SizedBox(height: 10), // Espacio si es mi propio perfil
+          const Center(
+            child: Text(
+              "TU PERFIL",
+              style: TextStyle(
+                color: Colors.white24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
 
         const SizedBox(height: 20),
 
@@ -224,13 +360,19 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     onLike: (postId) => _handleLike(postId),
                   ),
                 ),
-              ).then((_) {
-                // Cuando el usuario regresa de ver los posts, refrescamos el perfil
-                // para que los contadores y estados de likes se sincronicen.
-                _cargarPerfil();
-              });
+              ).then((_) => _cargarPerfil());
             },
-            child: Image.network(photos[index]['image_url'], fit: BoxFit.cover),
+            child: Image.network(
+              photos[index]['image_url'],
+              fit: BoxFit.cover,
+              // Esto es lo que añadimos:
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  color: Colors.white10,
+                  child: const Icon(Icons.broken_image, color: Colors.white24),
+                );
+              },
+            ),
           ),
         ),
       ],
