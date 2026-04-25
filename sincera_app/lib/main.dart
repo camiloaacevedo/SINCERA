@@ -32,7 +32,7 @@ class SinceraApp extends StatelessWidget {
       title: 'Sincera',
       debugShowCheckedModeBanner: false,
       
-      // Aplicamos tu tema oscuro personalizado
+      // Aplicamos un tema oscuro personalizado
       theme: SinceraTheme.darkTheme,
       
       // Definimos la ruta de inicio basada en la comprobación del main

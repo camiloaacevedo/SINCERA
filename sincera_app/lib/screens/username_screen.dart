@@ -1,6 +1,6 @@
+import '../services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:http/http.dart' as http;
 import '../theme.dart';
 
 class UsernameScreen extends StatefulWidget {
@@ -12,31 +12,28 @@ class UsernameScreen extends StatefulWidget {
 
 class _UsernameScreenState extends State<UsernameScreen> {
   final TextEditingController _controller = TextEditingController();
-  final String miIp = "192.168.1.24"; 
 
   Future<void> _saveUsername() async {
-    if (_controller.text.isEmpty) return;
+  final String nombre = _controller.text.trim();
+  if (nombre.isEmpty) return;
 
-    try {
-      // 1. Registramos en el backend de Python
-      final response = await http.post(
-        Uri.parse('http://$miIp:8000/register?username=${_controller.text}'),
+  final bool exito = await ApiService.registerUser(nombre);
+
+  if (exito) {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('username', nombre);
+
+    if (mounted) {
+      Navigator.pushReplacementNamed(context, '/');
+    }
+  } else {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Error de conexión con el servidor")),
       );
-
-      if (response.statusCode == 200) {
-        // 2. Guardamos en la memoria del teléfono para no preguntarlo más
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('username', _controller.text);
-
-        if (mounted) {
-          // 3. Vamos al muro de fotos
-          Navigator.pushReplacementNamed(context, '/');
-        }
-      }
-    } catch (e) {
-      debugPrint("Error al registrar: $e");
     }
   }
+}
 
   @override
   Widget build(BuildContext context) {

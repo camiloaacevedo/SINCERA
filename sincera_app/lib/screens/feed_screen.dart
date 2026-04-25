@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/post_item.dart';
 import '../theme.dart';
 import 'post_view_screen.dart';
+import 'user_profile_screen.dart';
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
@@ -66,9 +67,13 @@ class _FeedScreenState extends State<FeedScreen>
 
   Future<void> _fetchProfileData() async {
     if (currentUsername == null) return;
+
     final data = await ApiService.fetchProfile(currentUsername!);
-    if (data != null) {
-      setState(() => profileData = data);
+
+    if (mounted && data != null) {
+      setState(() {
+        profileData = data;
+      });
     }
   }
 
@@ -113,12 +118,12 @@ class _FeedScreenState extends State<FeedScreen>
             ), // Lista vacía para posts por ahora
             _buildStat(
               "Seguidores",
-              profileData!['followers'].toString(),
+              profileData!['followers_count'].toString(),
               profileData!['followers_list'] ?? [],
             ),
             _buildStat(
               "Siguiendo",
-              profileData!['following'].toString(),
+              profileData!['following_count'].toString(),
               profileData!['following_list'] ?? [],
             ),
           ],
@@ -207,6 +212,16 @@ class _FeedScreenState extends State<FeedScreen>
               child: ListView.builder(
                 itemCount: lista.length,
                 itemBuilder: (context, i) => ListTile(
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            UserProfileScreen(username: lista[i]['username']),
+                      ),
+                    );
+                  },
                   leading: const CircleAvatar(
                     backgroundColor: SinceraTheme.accentNeon,
                     child: Icon(Icons.person, color: Colors.black),
@@ -215,11 +230,6 @@ class _FeedScreenState extends State<FeedScreen>
                     lista[i]['username'] ?? "Usuario",
                     style: const TextStyle(color: Colors.white),
                   ),
-                  onTap: () {
-                    Navigator.pop(context);
-                    // PRÓXIMO PASO: Aquí irá la navegación al perfil del otro usuario
-                    debugPrint("Ver perfil de: ${lista[i]['username']}");
-                  },
                 ),
               ),
             ),
