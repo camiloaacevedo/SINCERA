@@ -1,119 +1,135 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ApiService {
-  // Centralizamos la IP.
   static const String baseUrl = "http://192.168.1.24:8000";
 
-  // --- OBTENER POSTS GLOBALES ---
   static Future<List> fetchGlobalPosts(String? username) async {
     try {
       final url = '$baseUrl/posts?current_user=$username';
       final response = await http.get(Uri.parse(url));
-
-      if (response.statusCode == 200) {
-        return json.decode(response.body);
-      }
-      return [];
+      return response.statusCode == 200 ? json.decode(response.body) : [];
     } catch (e) {
-      debugPrint("Error en fetchGlobalPosts: $e");
       return [];
     }
   }
 
-  // --- OBTENER FEED DE SEGUIDOS ---
   static Future<List> fetchFollowingFeed(String username) async {
     try {
       final url = '$baseUrl/feed/following/$username';
       final response = await http.get(Uri.parse(url));
-
-      if (response.statusCode == 200) {
-        return json.decode(response.body);
-      }
-      return [];
+      return response.statusCode == 200 ? json.decode(response.body) : [];
     } catch (e) {
-      debugPrint("Error en fetchFollowingFeed: $e");
       return [];
     }
   }
 
-  // --- OBTENER DATOS DE PERFIL ---
-  static Future<Map<String, dynamic>?> fetchProfile(String username) async {
-    final prefs = await SharedPreferences.getInstance();
-    final myName = prefs.getString('username') ?? "";
-
+  static Future<Map<String, dynamic>?> fetchProfile(String username, String? myUsername) async {
     try {
-      final url = '$baseUrl/profile/$username?current_user=$myName';
+      final url = '$baseUrl/profile/$username?current_user=$myUsername';
       final response = await http.get(Uri.parse(url));
-
       if (response.statusCode == 200) {
-        return json.decode(response.body);
+        Map<String, dynamic> data = json.decode(response.body);
+        data['followers_list'] = await fetchFollowers(username);
+        data['following_list'] = await fetchFollowing(username);
+        return data;
       }
       return null;
     } catch (e) {
-      debugPrint("Error en fetchProfile: $e");
       return null;
     }
   }
 
-  // --- DAR/QUITAR LIKE ---
-  static Future<void> toggleLike(dynamic postId, String username) async {
+  static Future<List> fetchFollowers(String username) async {
     try {
-      final url = '$baseUrl/like?post_id=$postId&username=$username';
-      await http.post(Uri.parse(url));
+      final res = await http.get(Uri.parse('$baseUrl/followers/$username'));
+      return res.statusCode == 200 ? json.decode(res.body) : [];
     } catch (e) {
-      debugPrint("Error en toggleLike: $e");
+      return [];
     }
   }
 
-  // --- SUBIR IMAGEN (CÁMARA) ---
-  static Future<bool> uploadImage(String filePath, String username) async {
+  static Future<List> fetchFollowing(String username) async {
     try {
+      final res = await http.get(Uri.parse('$baseUrl/following/$username'));
+      return res.statusCode == 200 ? json.decode(res.body) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  static Future<bool> uploadImage(String filePath) async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return false;
       var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/upload'));
-
-      // Enviamos el nombre del usuario
-      request.fields['user_id'] = username;
-
-      // Adjuntamos el archivo
+      request.fields['user_id'] = user.id;
       request.files.add(await http.MultipartFile.fromPath('file', filePath));
-
-      var streamedResponse = await request.send();
-      var response = await http.Response.fromStream(streamedResponse);
-
-      if (response.statusCode == 200) {
-        debugPrint("Éxito: Foto subida correctamente");
-        return true;
-      } else {
-        debugPrint("Error del servidor: ${response.statusCode}");
-        return false;
-      }
+      var res = await request.send();
+      return res.statusCode == 200;
     } catch (e) {
-      debugPrint("Error de red al subir imagen: $e");
       return false;
     }
   }
 
-  // --- REGISTRAR USUARIO ---
+  static Future<void> toggleLike(dynamic postId, String username) async {
+    try {
+      await http.post(Uri.parse('$baseUrl/like?post_id=${postId.toString()}&username=$username'));
+    } catch (e) {
+      debugPrint("Error like: $e");
+    }
+  }
+
   static Future<bool> registerUser(String username) async {
     try {
-      final url = '$baseUrl/register?username=$username';
+      final user = Supabase.instance.client.auth.currentUser;
+      final url = '$baseUrl/register?username=$username&user_id=${user?.id}';
       final response = await http.post(Uri.parse(url));
       return response.statusCode == 200;
     } catch (e) {
-      debugPrint("Error en registerUser: $e");
       return false;
     }
   }
 
-  // --- SEGUIR USUARIO ---
   static Future<void> followUser(String follower, String following) async {
     try {
-      final url = '$baseUrl/follow?follower=$follower&following=$following';
-      await http.post(Uri.parse(url));
+      await http.post(Uri.parse('$baseUrl/follow?follower=$follower&following=$following'));
     } catch (e) {
-      debugPrint("Error en followUser: $e");
+      debugPrint("Error follow: $e");
+    }
+  }
+
+  static Future<void> unfollowUser(String follower, String followed) async {
+  try {
+    // Ajusta la URL según tu backend (ejemplo: /unfollow)
+    final response = await http.post(
+      Uri.parse('$baseUrl/unfollow'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'follower': follower,
+        'followed': followed,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Error al dejar de seguir');
+    }
+  } catch (e) {
+    rethrow;
+  }
+}
+
+  static Future<String?> updateAvatar(String filePath, String username) async {
+    try {
+      var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/upload_avatar'));
+      request.fields['username'] = username;
+      request.files.add(await http.MultipartFile.fromPath('file', filePath));
+      var res = await http.Response.fromStream(await request.send());
+      return res.statusCode == 200 ? json.decode(res.body)['avatar_url'] : null;
+    } catch (e) {
+      return null;
     }
   }
 }

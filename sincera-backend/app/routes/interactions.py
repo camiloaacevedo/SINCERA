@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.database import neo4j_driver, supabase, get_likes_count
+from app.database import neo4j_driver, supabase
 
 router = APIRouter(tags=["Interactions"])
 
@@ -7,85 +7,54 @@ router = APIRouter(tags=["Interactions"])
 async def get_following_feed(username: str):
     try:
         with neo4j_driver.session() as session:
-            # 1. Buscamos a quién sigues en Neo4j
-            query_amigos = """
+            query = """
             MATCH (me:User {username: $username})-[:FOLLOWS]->(amigo:User)
-            RETURN amigo.username AS amigo_nombre
+            WHERE amigo.id IS NOT NULL
+            RETURN amigo.id AS amigo_id
             """
-            result = session.run(query_amigos, username=username)
-            amigos = [record["amigo_nombre"] for record in result]
+            result = session.run(query, username=username)
+            amigos_ids = [record["amigo_id"] for record in result]
 
-            if not amigos:
+            if not amigos_ids:
                 return []
 
-            # 2. Buscamos los posts en Supabase
             response = supabase.table("posts")\
-                .select("*")\
-                .in_("user_id", amigos)\
+                .select("*, profiles(username, avatar_url)")\
+                .in_("user_id", amigos_ids)\
                 .order("created_at", desc=True)\
                 .execute()
             
-            posts_data = response.data
-            
-            # 3. ENRIQUECIMIENTO CON NEO4J (La clave de la sincronización)
-            for post in posts_data:
-                post_id = str(post['id'])
-                
-                # A. Contar LIKES reales (Igual que en Global)
-                count_res = session.run("""
-                    OPTIONAL MATCH (:User)-[r:LIKED]->(p:Post {id: $pid})
-                    RETURN count(r) AS c
-                """, pid=post_id).single()
-                post['likes_count'] = count_res["c"]
-
-                # B. Verificar si YO le di like
-                like_check = session.run("""
-                    MATCH (u:User {username: $u})-[:LIKED]->(p:Post {id: $pid}) 
-                    RETURN p
-                """, u=username, pid=post_id).single()
-                post['user_has_liked'] = like_check is not None
-                
-                # C. Forzar true porque estamos en el feed de seguidos
-                post['already_following'] = True
-                
-            return posts_data
-            
+            # SOLUCIÓN 1: Aplanar los datos para que Flutter encuentre 'username' y 'avatar_url' directo
+            data = response.data if response.data else []
+            for p in data:
+                if 'profiles' in p and p['profiles']:
+                    p['username'] = p['profiles'].get('username')
+                    p['avatar_url'] = p['profiles'].get('avatar_url')
+            return data
     except Exception as e:
         print(f"Error en feed siguiendo: {e}")
         return []
     
 @router.post("/like")
-async def like_post(post_id: str, username: str):
+async def toggle_like(post_id: str, username: str):
     try:
         with neo4j_driver.session() as session:
-            # Esta consulta es un "Toggle":
-            # 1. Busca si existe la relación LIKED entre el usuario y el post
-            # 2. Si existe, la borra (Unlike)
-            # 3. Si no existe, la crea (Like)
-            query = """
-            MATCH (u:User {username: $u}), (p:Post {id: $pid})
-            OPTIONAL MATCH (u)-[r:LIKED]->(p)
-            WITH u, p, r
-            CALL apoc.do.when(
-                r IS NOT NULL,
-                'DELETE r RETURN false AS liked',
-                'MERGE (u)-[:LIKED]->(p) RETURN true AS liked',
-                {r:r, u:u, p:p}
-            ) YIELD value
-            RETURN value.liked AS liked_now
+            check_query = """
+                MATCH (u:User {username: $u})-[r:LIKES]->(p:Post {id: $pid})
+                RETURN r IS NOT NULL as existe
             """
-            # Nota: Si no tienes instalado APOC en Neo4j, usa esta versión más simple:
-            simple_query = """
-            MATCH (u:User {username: $u}), (p:Post {id: $pid})
-            OPTIONAL MATCH (u)-[r:LIKED]->(p)
-            FOREACH (_ IN CASE WHEN r IS NOT NULL THEN [1] ELSE [] END | DELETE r)
-            FOREACH (_ IN CASE WHEN r IS NULL THEN [1] ELSE [] END | MERGE (u)-[:LIKED]->(p))
-            RETURN r IS NULL AS liked_now
-            """
-            
-            result = session.run(simple_query, u=username, pid=post_id).single()
-            
-        return {"status": "success", "is_liked": result["liked_now"]}
+            result = session.run(check_query, u=username, pid=str(post_id)).single()
+            ya_existe = result["existe"] if result else False
+
+            if ya_existe:
+                session.run("MATCH (u:User {username: $u})-[r:LIKES]->(p:Post {id: $pid}) DELETE r", u=username, pid=str(post_id))
+                return {"liked": False}
+            else:
+                session.run("""
+                    MERGE (u:User {username: $u})
+                    MERGE (p:Post {id: $pid})
+                    MERGE (u)-[:LIKES]->(p)
+                """, u=username, pid=str(post_id))
+                return {"liked": True}
     except Exception as e:
-        print(f"Error en toggle like: {e}")
         return {"error": str(e)}, 500

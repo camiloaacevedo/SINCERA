@@ -1,10 +1,14 @@
-import '../services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'user_profile_screen.dart';
+import 'post_view_screen.dart';
+import '../services/api_service.dart';
 import '../widgets/post_item.dart';
 import '../theme.dart';
-import 'post_view_screen.dart';
-import 'user_profile_screen.dart';
+import '../utils.dart';
+
+final supabase = Supabase.instance.client;
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
@@ -27,6 +31,9 @@ class _FeedScreenState extends State<FeedScreen>
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() {
+      if (_tabController.indexIsChanging) {
+        FocusManager.instance.primaryFocus?.unfocus();
+      }
       if (!_tabController.indexIsChanging) {
         if (_tabController.index == 1) _fetchFollowingPosts();
         if (_tabController.index == 2) _fetchProfileData();
@@ -37,93 +44,196 @@ class _FeedScreenState extends State<FeedScreen>
 
   Future<void> _inicializarApp() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() => currentUsername = prefs.getString('username'));
+    final user = prefs.getString('username');
+    setState(() => currentUsername = user);
+    await _fetchProfileData();
     await _fetchPosts();
   }
 
-  Future<void> _logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
-    if (mounted) Navigator.pushReplacementNamed(context, '/username');
+  // --- FUNCIÓN PARA VER LA FOTO AGRANDADA (Bordes redondeados) ---
+  void _verFotoGrande(String? url) {
+    showDialog(
+      context: context,
+      builder: (context) => Center(
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.8,
+          height:
+              MediaQuery.of(context).size.height *
+              0.6, // Más alto que ancho para que sea alargado
+          decoration: BoxDecoration(
+            color: Colors.black,
+            borderRadius: BorderRadius.circular(30),
+            image: url != null
+                ? DecorationImage(image: NetworkImage(url), fit: BoxFit.cover)
+                : null,
+          ),
+          child: url == null
+              ? const Icon(Icons.person, size: 100, color: Colors.white24)
+              : null,
+        ),
+      ),
+    );
+  }
+
+  void _mostrarOpcionesFoto() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.black,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 10),
+          ListTile(
+            leading: const Icon(Icons.photo_library, color: Colors.white),
+            title: const Text(
+              "Elegir de la galería",
+              style: TextStyle(color: Colors.white),
+            ),
+            onTap: () => Navigator.pop(context),
+          ),
+          ListTile(
+            leading: const Icon(Icons.camera_alt, color: Colors.white),
+            title: const Text(
+              "Tomar foto",
+              style: TextStyle(color: Colors.white),
+            ),
+            onTap: () => Navigator.pop(context),
+          ),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
   }
 
   Future<void> _fetchPosts() async {
     final data = await ApiService.fetchGlobalPosts(currentUsername);
-    setState(() {
-      posts = data;
-      isLoading = false;
-    });
+    if (mounted) {
+      final List followingList = profileData?['following_list'] ?? [];
+      final setFollowed = followingList
+          .map((u) => u['username']?.toString().trim().toLowerCase())
+          .toSet();
+
+      setState(() {
+        posts = data.map((post) {
+          final p = Map<String, dynamic>.from(post);
+          String? author = p['username']?.toString().trim().toLowerCase();
+          if (setFollowed.contains(author)) p['is_following'] = true;
+          return p;
+        }).toList();
+        isLoading = false;
+      });
+    }
   }
 
   Future<void> _fetchFollowingPosts() async {
     if (currentUsername == null) return;
     setState(() => isFollowingLoading = true);
-    final data = await ApiService.fetchFollowingFeed(currentUsername!);
-    setState(() {
-      followingPosts = data;
-      isFollowingLoading = false;
-    });
+    try {
+      final data = await ApiService.fetchFollowingFeed(currentUsername!);
+      if (mounted) {
+        setState(() {
+          followingPosts = data.map((post) {
+            final postModificable = Map<String, dynamic>.from(post);
+            postModificable['is_following'] = true;
+            return postModificable;
+          }).toList();
+          isFollowingLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => isFollowingLoading = false);
+    }
   }
 
   Future<void> _fetchProfileData() async {
     if (currentUsername == null) return;
-
-    final data = await ApiService.fetchProfile(currentUsername!);
-
-    if (mounted && data != null) {
-      setState(() {
-        profileData = data;
-      });
+    try {
+      final data = await ApiService.fetchProfile(
+        currentUsername!,
+        currentUsername,
+      );
+      if (mounted && data != null) {
+        setState(() {
+          profileData = data;
+          profileData!['followers_list'] ??= [];
+          profileData!['following_list'] ??= [];
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
-  // --- VISTA DE PERFIL ---
   Widget _buildProfileTab() {
     if (profileData == null) {
       return const Center(
         child: CircularProgressIndicator(color: SinceraTheme.accentNeon),
       );
     }
-    final photos = profileData!['photos'] as List;
-
+    final List photos = profileData!['posts'] ?? [];
     return ListView(
       children: [
         const SizedBox(height: 30),
         Center(
-          child: CircleAvatar(
-            radius: 45,
-            backgroundColor: SinceraTheme.accentNeon,
-            child: const Icon(Icons.person, size: 50, color: Colors.black),
-          ),
-        ),
-        const SizedBox(height: 15),
-        Center(
-          child: Text(
-            "@${currentUsername?.toUpperCase()}",
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
+          child: Stack(
+            children: [
+              GestureDetector(
+                onTap: () => SinceraUtils.verFotoGrande(
+                  context,
+                  profileData!['avatar_url'],
+                ),
+                child: CircleAvatar(
+                  radius: 45,
+                  backgroundColor: SinceraTheme.accentNeon,
+                  backgroundImage: profileData!['avatar_url'] != null
+                      ? NetworkImage(profileData!['avatar_url'])
+                      : null,
+                  child: profileData!['avatar_url'] == null
+                      ? const Icon(Icons.person, size: 50, color: Colors.black)
+                      : null,
+                ),
+              ),
+
+              // TOCAR LÁPIZ: Abre opciones de edición
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: GestureDetector(
+                  onTap: _mostrarOpcionesFoto,
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: const BoxDecoration(
+                      color: SinceraTheme.accentNeon,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.edit,
+                      size: 16,
+                      color: Colors.black,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 25),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            _buildStat(
-              "Posts",
-              profileData!['posts_count'].toString(),
-              [],
-            ), // Lista vacía para posts por ahora
+            _buildStat("Posts", photos.length.toString(), []),
             _buildStat(
               "Seguidores",
-              profileData!['followers_count'].toString(),
+              (profileData!['followers'] ?? 0).toString(),
               profileData!['followers_list'] ?? [],
             ),
             _buildStat(
               "Siguiendo",
-              profileData!['following_count'].toString(),
+              (profileData!['following_list']?.length ?? 0).toString(),
               profileData!['following_list'] ?? [],
             ),
           ],
@@ -144,18 +254,16 @@ class _FeedScreenState extends State<FeedScreen>
           ),
           itemCount: photos.length,
           itemBuilder: (context, index) => GestureDetector(
-            onTap: () {
-              // AQUÍ ES DONDE VA EL CARRUSEL
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => PostViewScreen(
-                    posts: photos, // Usamos la lista de fotos del perfil
-                    initialIndex: index, // Empezamos en la que el usuario tocó
-                  ),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => PostViewScreen(
+                  posts: photos,
+                  initialIndex: index,
+                  currentUsername: currentUsername,
                 ),
-              );
-            },
+              ),
+            ),
             child: Image.network(photos[index]['image_url'], fit: BoxFit.cover),
           ),
         ),
@@ -163,28 +271,116 @@ class _FeedScreenState extends State<FeedScreen>
     );
   }
 
-  Widget _buildStat(String label, String value, List lista) {
-    return GestureDetector(
-      onTap: () {
-        // Solo abrimos la lista si hay elementos (Seguidores o Siguiendo)
-        if (lista.isNotEmpty) {
-          _mostrarListaUsuarios(label, lista);
-        }
-      },
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
+  Widget _buildPostList(
+    List list,
+    bool loading,
+    Future<void> Function() onRefresh, {
+    String? emptyMessage,
+  }) {
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      child: loading
+          ? const Center(
+              child: CircularProgressIndicator(color: SinceraTheme.accentNeon),
+            )
+          : list.isEmpty
+          ? ListView(
+              children: [
+                SizedBox(height: MediaQuery.of(context).size.height * 0.3),
+                Center(
+                  child: Text(
+                    emptyMessage ?? "NO HAY POSTS DISPONIBLES",
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white24,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            )
+          : ListView.builder(
+              itemCount: list.length,
+              itemBuilder: (context, i) => PostItem(
+                post: list[i],
+                currentUsername: currentUsername,
+                onLikeUpdate: (n) {
+                  setState(() {
+                    list[i]['likes'] = n;
+                    list[i]['liked'] = !(list[i]['liked'] ?? false);
+                  });
+                  ApiService.toggleLike(list[i]['id'], currentUsername!);
+                },
+              ),
             ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        title: Text("SINCERA", style: SinceraTheme.headingStyle),
+        leading: IconButton(
+          icon: const Icon(Icons.logout, color: Colors.white24),
+          onPressed: _logout,
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(
+              Icons.camera_alt_outlined,
+              color: SinceraTheme.accentNeon,
+              size: 28,
+            ),
+            onPressed: _goToCamera,
           ),
-          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+          const SizedBox(width: 10),
+        ],
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: SinceraTheme.accentNeon,
+          tabs: const [
+            Tab(text: "GLOBAL"),
+            Tab(text: "SIGUIENDO"),
+            Tab(text: "PERFIL"),
+          ],
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildPostList(posts, isLoading, _fetchPosts),
+          _buildPostList(
+            followingPosts,
+            isFollowingLoading,
+            _fetchFollowingPosts,
+            // MENSAJE ORIGINAL CORTO
+            emptyMessage: "NO SIGUES A NADIE TODAVÍA.",
+          ),
+          _buildProfileTab(),
         ],
       ),
     );
+  }
+
+  void _logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+    await supabase.auth.signOut();
+    if (mounted)
+      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+  }
+
+  Future<void> _goToCamera() async {
+    final bool? subido = await Navigator.pushNamed(context, '/camera') as bool?;
+    if (subido == true) {
+      setState(() => isLoading = true);
+      _tabController.animateTo(0);
+      await _fetchPosts();
+    }
   }
 
   void _mostrarListaUsuarios(String titulo, List lista) {
@@ -204,34 +400,45 @@ class _FeedScreenState extends State<FeedScreen>
               style: const TextStyle(
                 color: SinceraTheme.accentNeon,
                 fontWeight: FontWeight.bold,
-                fontSize: 16,
               ),
             ),
             const Divider(color: Colors.white10, height: 30),
             Expanded(
-              child: ListView.builder(
-                itemCount: lista.length,
-                itemBuilder: (context, i) => ListTile(
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            UserProfileScreen(username: lista[i]['username']),
+              child: lista.isEmpty
+                  ? const Center(
+                      child: Text(
+                        "No hay usuarios todavía",
+                        style: TextStyle(color: Colors.white24),
                       ),
-                    );
-                  },
-                  leading: const CircleAvatar(
-                    backgroundColor: SinceraTheme.accentNeon,
-                    child: Icon(Icons.person, color: Colors.black),
-                  ),
-                  title: Text(
-                    lista[i]['username'] ?? "Usuario",
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                ),
-              ),
+                    )
+                  : ListView.builder(
+                      itemCount: lista.length,
+                      itemBuilder: (context, i) => ListTile(
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => UserProfileScreen(
+                                username: lista[i]['username'],
+                              ),
+                            ),
+                          );
+                        },
+                        leading: CircleAvatar(
+                          backgroundImage: lista[i]['avatar_url'] != null
+                              ? NetworkImage(lista[i]['avatar_url'])
+                              : null,
+                          child: lista[i]['avatar_url'] == null
+                              ? const Icon(Icons.person)
+                              : null,
+                        ),
+                        title: Text(
+                          lista[i]['username'] ?? "Usuario",
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    ),
             ),
           ],
         ),
@@ -239,104 +446,22 @@ class _FeedScreenState extends State<FeedScreen>
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        elevation: 0,
-        centerTitle: true,
-        // LOGO SINCERA
-        title: Text("SINCERA", style: SinceraTheme.headingStyle),
-        // BOTÓN DE SALIDA (PUERTA GRIS) A LA IZQUIERDA
-        leading: IconButton(
-          icon: const Icon(Icons.logout, color: Colors.white24, size: 22),
-          onPressed: _logout,
-        ),
-        // BOTÓN DE CÁMARA A LA DERECHA
-        actions: [
-          IconButton(
-            icon: const Icon(
-              Icons.camera_alt_outlined,
-              color: SinceraTheme.accentNeon,
-              size: 28,
-            ),
-            onPressed: () => Navigator.pushNamed(context, '/camera'),
-          ),
-          const SizedBox(width: 10),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: SinceraTheme.accentNeon,
-          labelColor: SinceraTheme.accentNeon,
-          unselectedLabelColor: Colors.white54,
-          indicatorWeight: 3,
-          tabs: const [
-            Tab(text: "GLOBAL"),
-            Tab(text: "SIGUIENDO"),
-            Tab(text: "PERFIL"),
-          ],
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
+  Widget _buildStat(String label, String value, List lista) {
+    return GestureDetector(
+      onTap: () => _mostrarListaUsuarios(label, lista),
+      child: Column(
         children: [
-          RefreshIndicator(
-            onRefresh: _fetchPosts,
-            child: isLoading
-                ? const Center(
-                    child: CircularProgressIndicator(
-                      color: SinceraTheme.accentNeon,
-                    ),
-                  )
-                : ListView.builder(
-                    itemCount: posts.length,
-                    itemBuilder: (context, i) => PostItem(
-                      post: posts[i],
-                      onLikeUpdate: (nuevoTotal) {
-                        setState(() => posts[i]['likes_count'] = nuevoTotal);
-                        _handleLike(posts[i]['id']);
-                      },
-                    ),
-                  ),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-          RefreshIndicator(
-            onRefresh: _fetchFollowingPosts,
-            child: isFollowingLoading
-                ? const Center(
-                    child: CircularProgressIndicator(
-                      color: SinceraTheme.accentNeon,
-                    ),
-                  )
-                : followingPosts.isEmpty
-                ? const Center(
-                    child: Text(
-                      "No sigues a nadie aún",
-                      style: TextStyle(color: Colors.white24),
-                    ),
-                  )
-                : ListView.builder(
-                    itemCount: followingPosts.length,
-                    itemBuilder: (context, i) => PostItem(
-                      post: followingPosts[i],
-                      onLikeUpdate: (nuevoTotal) {
-                        setState(
-                          () => followingPosts[i]['likes_count'] = nuevoTotal,
-                        );
-                        _handleLike(followingPosts[i]['id']);
-                      },
-                    ),
-                  ),
-          ),
-          _buildProfileTab(),
+          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
         ],
       ),
     );
-  }
-
-  Future<void> _handleLike(dynamic postId) async {
-    if (currentUsername == null) return;
-    await ApiService.toggleLike(postId, currentUsername!);
   }
 }

@@ -1,47 +1,49 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'screens/feed_screen.dart';
+import 'screens/login_screen.dart';
+import 'screens/register_screen.dart';
 import 'screens/camera_screen.dart';
-import 'screens/username_screen.dart';
 import 'theme.dart';
 
 void main() async {
-  // Garantiza que los servicios de Flutter estén listos antes de usar SharedPreferences
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Obtenemos la instancia de almacenamiento local
+
+  // 1. Cargamos las variables de entorno
+  await dotenv.load(fileName: ".env");
+
+  // 2. Inicializamos Supabase usando esas variables
+  await Supabase.initialize(
+    url: dotenv.env['SUPABASE_URL']!,
+    anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
+  );
+
+  final session = Supabase.instance.client.auth.currentSession;
   final prefs = await SharedPreferences.getInstance();
   final String? username = prefs.getString('username');
 
-  // LÓGICA DE RUTA INICIAL:
-  // Si el 'username' es nulo o está vacío, mandamos al usuario a registrarse (/username).
-  // Si ya existe un nombre, lo mandamos directo al Feed principal (/).
-  String rutaInicial = (username == null || username.isEmpty) ? '/username' : '/';
+  // Si no hay sesión de Supabase o no tenemos el username local, vamos a Login
+  String rutaInicial = (session == null || username == null) ? '/login' : '/';
 
   runApp(SinceraApp(initialRoute: rutaInicial));
 }
 
 class SinceraApp extends StatelessWidget {
   final String initialRoute;
-  
   const SinceraApp({super.key, required this.initialRoute});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Sincera',
       debugShowCheckedModeBanner: false,
-      
-      // Aplicamos un tema oscuro personalizado
       theme: SinceraTheme.darkTheme,
-      
-      // Definimos la ruta de inicio basada en la comprobación del main
       initialRoute: initialRoute,
-      
-      // Mapa de rutas de la aplicación
       routes: {
         '/': (context) => const FeedScreen(),
-        '/username': (context) => const UsernameScreen(),
+        '/login': (context) => const LoginScreen(),
+        '/register': (context) => const RegisterScreen(),
         '/camera': (context) => const CameraScreen(),
       },
     );

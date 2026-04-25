@@ -1,54 +1,35 @@
 import 'package:flutter/material.dart';
 import '../widgets/post_item.dart';
 
-class PostViewScreen extends StatefulWidget {
+class PostViewScreen extends StatelessWidget {
   final List posts;
   final int initialIndex;
-  final Function(dynamic)? onLike;
+  final String? currentUsername;
 
   const PostViewScreen({
-    super.key,
-    required this.posts,
-    required this.initialIndex,
-    this.onLike,
+    super.key, 
+    required this.posts, 
+    required this.initialIndex, 
+    this.currentUsername
   });
 
   @override
-  State<PostViewScreen> createState() => _PostViewScreenState();
-}
-
-class _PostViewScreenState extends State<PostViewScreen> {
-  @override
   Widget build(BuildContext context) {
-    PageController controller = PageController(initialPage: widget.initialIndex);
-
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.white),
+        elevation: 0,
       ),
       body: PageView.builder(
-        controller: controller,
-        itemCount: widget.posts.length,
+        controller: PageController(initialPage: initialIndex),
+        itemCount: posts.length,
         itemBuilder: (context, index) {
           return SingleChildScrollView(
             child: PostItem(
-              // Pasamos el post actual de la lista
-              post: widget.posts[index],
-              onLikeUpdate: (nuevoTotal) {
-                setState(() {
-                  // Actualizamos el estado local de la lista para que al volver 
-                  // al perfil o deslizar se mantenga el cambio
-                  widget.posts[index]['likes_count'] = nuevoTotal;
-                  widget.posts[index]['user_has_liked'] = ! (widget.posts[index]['user_has_liked'] ?? false);
-                });
-                
-                // Enviamos al backend
-                if (widget.onLike != null) {
-                  widget.onLike!(widget.posts[index]['id']);
-                }
-              },
+              post: posts[index],
+              currentUsername: currentUsername, // ESTO ES LO QUE OCULTA EL BOTÓN
             ),
           );
         },
