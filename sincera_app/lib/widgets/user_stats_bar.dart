@@ -34,9 +34,7 @@ class UserStatsBar extends StatelessWidget {
     bool isClickable = label.toLowerCase() != "posts";
 
     return GestureDetector(
-      onTap: isClickable
-          ? () => onStatTap(label, lista)
-          : null,
+      onTap: isClickable ? () => onStatTap(label, lista) : null,
       child: Column(
         children: [
           Text(

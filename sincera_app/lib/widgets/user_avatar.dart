@@ -9,8 +9,8 @@ class UserAvatar extends StatelessWidget {
   const UserAvatar({
     super.key,
     this.avatarUrl,
-    this.radius = 45,
-    this.iconSize = 50,
+    this.radius = 20, // Tamaño pequeño por defecto para listas
+    this.iconSize = 20,
   });
 
   @override

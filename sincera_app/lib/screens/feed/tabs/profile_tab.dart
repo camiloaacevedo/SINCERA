@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:sincera_app/widgets/user_avatar.dart';
+import 'package:sincera_app/widgets/user_list_modal.dart';
 import '../../../theme.dart';
 import '../../../utils.dart';
 import '../../post_view_screen.dart';
-import '../../user_profile_screen.dart';
 import '../../../widgets/user_stats_bar.dart';
 import '../../../widgets/user_posts_grid.dart';
 
@@ -62,66 +62,7 @@ class _ProfileTabState extends State<ProfileTab>
   }
 
   void _handleStatTap(String titulo, List lista) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.black,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(20),
-        height: MediaQuery.of(context).size.height * 0.5,
-        child: Column(
-          children: [
-            Text(
-              titulo.toUpperCase(),
-              style: const TextStyle(
-                color: SinceraTheme.accentNeon,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const Divider(color: Colors.white10, height: 30),
-            Expanded(
-              child: lista.isEmpty
-                  ? const Center(
-                      child: Text(
-                        "No hay usuarios todavía",
-                        style: TextStyle(color: Colors.white24),
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: lista.length,
-                      itemBuilder: (context, i) => ListTile(
-                        onTap: () {
-                          Navigator.pop(context);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => UserProfileScreen(
-                                username: lista[i]['username'],
-                              ),
-                            ),
-                          );
-                        },
-                        leading: CircleAvatar(
-                          backgroundImage: lista[i]['avatar_url'] != null
-                              ? NetworkImage(lista[i]['avatar_url'])
-                              : null,
-                          child: lista[i]['avatar_url'] == null
-                              ? const Icon(Icons.person)
-                              : null,
-                        ),
-                        title: Text(
-                          lista[i]['username'] ?? "Usuario",
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                      ),
-                    ),
-            ),
-          ],
-        ),
-      ),
-    );
+    UserListModal.show(context, titulo, lista);
   }
 
   @override
@@ -148,7 +89,11 @@ class _ProfileTabState extends State<ProfileTab>
                   context,
                   widget.profileData!['avatar_url'],
                 ),
-                child: UserAvatar(avatarUrl: widget.profileData!['avatar_url']),
+                child: UserAvatar(
+                  avatarUrl: widget.profileData!['avatar_url'],
+                  radius: 45,
+                  iconSize: 45,
+                ),
               ),
               Positioned(
                 bottom: 0,
@@ -158,7 +103,7 @@ class _ProfileTabState extends State<ProfileTab>
                   child: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: const BoxDecoration(
-                      color: SinceraTheme.accentNeon,
+                      color: SinceraTheme.accentOrange,
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
