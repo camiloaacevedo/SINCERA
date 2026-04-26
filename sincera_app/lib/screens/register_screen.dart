@@ -16,7 +16,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isLoading = false;
 
   Future<void> _handleRegister() async {
-    if (_usernameController.text.isEmpty || _emailController.text.isEmpty || _passwordController.text.isEmpty) {
+    if (_usernameController.text.isEmpty ||
+        _emailController.text.isEmpty ||
+        _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Por favor, llena todos los campos")),
       );
@@ -24,7 +26,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     setState(() => _isLoading = true);
-    
+
     final error = await AuthService.signUp(
       _emailController.text.trim(),
       _passwordController.text.trim(),
@@ -37,7 +39,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         Navigator.pushReplacementNamed(context, '/');
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $error"), backgroundColor: Colors.redAccent),
+          SnackBar(
+            content: Text("Error: $error"),
+            backgroundColor: Colors.redAccent,
+          ),
         );
       }
     }
@@ -47,23 +52,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0), // Para poder volver atrás
+      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 30),
         child: Center(
           child: SingleChildScrollView(
             child: Column(
               children: [
-                Text("ÚNETE", style: SinceraTheme.headingStyle.copyWith(fontSize: 40)),
+                Text(
+                  "ÚNETE",
+                  style: SinceraTheme.headingStyle.copyWith(fontSize: 40),
+                ),
                 const SizedBox(height: 10),
-                const Text("Crea tu cuenta en SINCERA", style: TextStyle(color: Colors.white54)),
+                const Text(
+                  "Crea tu cuenta en SINCERA",
+                  style: TextStyle(color: Colors.white54),
+                ),
                 const SizedBox(height: 40),
-                
+
                 // Campo Username
                 TextField(
                   controller: _usernameController,
                   style: const TextStyle(color: Colors.white),
-                  decoration: _buildInputDecoration("Nombre de usuario", Icons.alternate_email),
+                  decoration: _buildInputDecoration(
+                    "Nombre de usuario",
+                    Icons.alternate_email,
+                  ),
                 ),
                 const SizedBox(height: 20),
 
@@ -71,19 +85,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 TextField(
                   controller: _emailController,
                   style: const TextStyle(color: Colors.white),
-                  decoration: _buildInputDecoration("Email", Icons.email_outlined),
+                  decoration: _buildInputDecoration(
+                    "Email",
+                    Icons.email_outlined,
+                  ),
                 ),
                 const SizedBox(height: 20),
-                
+
                 // Campo Contraseña
                 TextField(
                   controller: _passwordController,
                   obscureText: true,
                   style: const TextStyle(color: Colors.white),
-                  decoration: _buildInputDecoration("Contraseña", Icons.lock_outline),
+                  decoration: _buildInputDecoration(
+                    "Contraseña",
+                    Icons.lock_outline,
+                  ),
                 ),
                 const SizedBox(height: 40),
-                
+
                 // Botón Registrarse
                 SizedBox(
                   width: double.infinity,
@@ -92,11 +112,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     onPressed: _isLoading ? null : _handleRegister,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: SinceraTheme.accentNeon,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
                     ),
-                    child: _isLoading 
-                      ? const CircularProgressIndicator(color: Colors.black)
-                      : const Text("CREAR CUENTA", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16)),
+                    child: _isLoading
+                        ? const CircularProgressIndicator(color: Colors.black)
+                        : const Text(
+                            "CREAR CUENTA",
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
                   ),
                 ),
               ],

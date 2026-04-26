@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import '../services/api_service.dart';
@@ -33,13 +32,15 @@ class _CameraScreenState extends State<CameraScreen> {
   Future<void> _takeAndUpload() async {
     if (_controller == null ||
         !_controller!.value.isInitialized ||
-        _isUploading)
+        _isUploading) {
       return;
+    }
 
     setState(() => _isUploading = true);
 
     try {
       final XFile image = await _controller!.takePicture();
+      if (!mounted) return;
 
       // Mostrar snackbar de progreso
       ScaffoldMessenger.of(context).showSnackBar(
@@ -50,8 +51,9 @@ class _CameraScreenState extends State<CameraScreen> {
       );
 
       final success = await ApiService.uploadImage(image.path);
+      if (!mounted) return;
 
-      if (success && mounted) {
+      if (success) {
         // VITAL: Pasamos true para que el FeedScreen sepa que debe recargar
         Navigator.pop(context, true);
       } else {
@@ -61,8 +63,9 @@ class _CameraScreenState extends State<CameraScreen> {
         );
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isUploading = false);
-      print("Error cámara: $e");
+      debugPrint("Error cámara: $e");
     }
   }
 

@@ -5,12 +5,14 @@ class PostViewScreen extends StatelessWidget {
   final List posts;
   final int initialIndex;
   final String? currentUsername;
+  final bool isFollowingProfile;
 
   const PostViewScreen({
-    super.key, 
-    required this.posts, 
-    required this.initialIndex, 
-    this.currentUsername
+    super.key,
+    required this.posts,
+    required this.initialIndex,
+    this.currentUsername,
+    this.isFollowingProfile = false,
   });
 
   @override
@@ -26,10 +28,18 @@ class PostViewScreen extends StatelessWidget {
         controller: PageController(initialPage: initialIndex),
         itemCount: posts.length,
         itemBuilder: (context, index) {
+          // Creamos una copia del post para no modificar la lista original directamente
+          final Map<String, dynamic> postData = Map<String, dynamic>.from(
+            posts[index],
+          );
+
+          // FORZAMOS el estado de seguimiento que viene del perfil
+          postData['is_following'] = isFollowingProfile;
+
           return SingleChildScrollView(
             child: PostItem(
-              post: posts[index],
-              currentUsername: currentUsername, // ESTO ES LO QUE OCULTA EL BOTÓN
+              post: postData, // Pasamos el post con el dato corregido
+              currentUsername: currentUsername,
             ),
           );
         },

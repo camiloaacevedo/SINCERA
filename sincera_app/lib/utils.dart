@@ -7,7 +7,7 @@ class SinceraUtils {
       builder: (context) => Center(
         child: Container(
           width: MediaQuery.of(context).size.width * 0.8,
-          height: MediaQuery.of(context).size.height * 0.5, // El tamaño alargado que pediste
+          height: MediaQuery.of(context).size.height * 0.5,
           decoration: BoxDecoration(
             color: Colors.black,
             borderRadius: BorderRadius.circular(30), // Bordes redondeados

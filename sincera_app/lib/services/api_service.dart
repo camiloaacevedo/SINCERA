@@ -26,7 +26,10 @@ class ApiService {
     }
   }
 
-  static Future<Map<String, dynamic>?> fetchProfile(String username, String? myUsername) async {
+  static Future<Map<String, dynamic>?> fetchProfile(
+    String username,
+    String? myUsername,
+  ) async {
     try {
       final url = '$baseUrl/profile/$username?current_user=$myUsername';
       final response = await http.get(Uri.parse(url));
@@ -76,7 +79,11 @@ class ApiService {
 
   static Future<void> toggleLike(dynamic postId, String username) async {
     try {
-      await http.post(Uri.parse('$baseUrl/like?post_id=${postId.toString()}&username=$username'));
+      await http.post(
+        Uri.parse(
+          '$baseUrl/like?post_id=${postId.toString()}&username=$username',
+        ),
+      );
     } catch (e) {
       debugPrint("Error like: $e");
     }
@@ -95,35 +102,36 @@ class ApiService {
 
   static Future<void> followUser(String follower, String following) async {
     try {
-      await http.post(Uri.parse('$baseUrl/follow?follower=$follower&following=$following'));
+      await http.post(
+        Uri.parse('$baseUrl/follow?follower=$follower&following=$following'),
+      );
     } catch (e) {
       debugPrint("Error follow: $e");
     }
   }
 
   static Future<void> unfollowUser(String follower, String followed) async {
-  try {
-    // Ajusta la URL según tu backend (ejemplo: /unfollow)
-    final response = await http.post(
-      Uri.parse('$baseUrl/unfollow'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'follower': follower,
-        'followed': followed,
-      }),
-    );
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/unfollow'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'follower': follower, 'followed': followed}),
+      );
 
-    if (response.statusCode != 200) {
-      throw Exception('Error al dejar de seguir');
+      if (response.statusCode != 200) {
+        throw Exception('Error al dejar de seguir');
+      }
+    } catch (e) {
+      rethrow;
     }
-  } catch (e) {
-    rethrow;
   }
-}
 
   static Future<String?> updateAvatar(String filePath, String username) async {
     try {
-      var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/upload_avatar'));
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/upload_avatar'),
+      );
       request.fields['username'] = username;
       request.files.add(await http.MultipartFile.fromPath('file', filePath));
       var res = await http.Response.fromStream(await request.send());

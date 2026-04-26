@@ -29,7 +29,6 @@ class _PostItemState extends State<PostItem> {
   @override
   void initState() {
     super.initState();
-    // Forzamos la conversión a booleano por seguridad
     isFollowing = widget.post['is_following'] == true;
     _commentFocus.addListener(
       () => setState(() => isWriting = _commentFocus.hasFocus),
@@ -38,7 +37,7 @@ class _PostItemState extends State<PostItem> {
 
   @override
   void dispose() {
-    // CORRECCIÓN: Cerramos el teclado al salir del post
+    // Cerramos el teclado al salir del post
     _commentFocus.dispose();
     _commentController.dispose();
     super.dispose();
@@ -47,10 +46,9 @@ class _PostItemState extends State<PostItem> {
   @override
   void didUpdateWidget(covariant PostItem oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // --- CAPA 2: REACCIÓN AL CAMBIO ---
-    // Si el Feed (padre) le manda datos nuevos al PostItem,
-    // actualizamos el color del botón inmediatamente.
-    if (widget.post['is_following'] != oldWidget.post['is_following']) {
+    // Si los datos del post cambiaron, forzamos la actualización del botón
+    if (widget.post['is_following'] != oldWidget.post['is_following'] ||
+        widget.post['username'] != oldWidget.post['username']) {
       setState(() {
         isFollowing = widget.post['is_following'] == true;
       });
@@ -58,56 +56,66 @@ class _PostItemState extends State<PostItem> {
   }
 
   Future<void> _handleFollow() async {
-  if (widget.currentUsername == null || widget.post['username'] == null) return;
-
-  // Guardamos el estado anterior por si la petición falla
-  final bool wasFollowing = isFollowing;
-
-  setState(() {
-    isFollowing = !isFollowing;
-  });
-
-  try {
-    if (wasFollowing) {
-      // SI YA LO SEGUÍA, AHORA LO DEJO DE SEGUIR
-      await ApiService.unfollowUser(
-        widget.currentUsername!,
-        widget.post['username'],
-      );
-      // Opcional: Mostrar un mensaje rápido
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Dejaste de seguir a ${widget.post['username']}")),
-      );
-    } else {
-      // SI NO LO SEGUÍA, AHORA LO SIGO
-      await ApiService.followUser(
-        widget.currentUsername!,
-        widget.post['username'],
-      );
+    if (widget.currentUsername == null || widget.post['username'] == null) {
+      return;
     }
-  } catch (e) {
-    // Si hay error en el servidor, revertimos el botón al estado anterior
-    if (mounted) {
-      setState(() {
-        isFollowing = wasFollowing;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Error en la conexión")),
-      );
+
+    // Guardamos el estado anterior por si la petición falla
+    final bool wasFollowing = isFollowing;
+
+    setState(() {
+      isFollowing = !isFollowing;
+    });
+
+    try {
+      if (wasFollowing) {
+        // SI YA LO SEGUÍA, AHORA LO DEJO DE SEGUIR
+        await ApiService.unfollowUser(
+          widget.currentUsername!,
+          widget.post['username'],
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Dejaste de seguir a ${widget.post['username']}"),
+            ),
+          );
+        }
+      } else {
+        // SI NO LO SEGUÍA, AHORA LO SIGO
+        await ApiService.followUser(
+          widget.currentUsername!,
+          widget.post['username'],
+        );
+      }
+    } catch (e) {
+      // Si hay error en el servidor, revertimos el botón al estado anterior
+      if (mounted) {
+        setState(() {
+          isFollowing = wasFollowing;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text("Error en la conexión")));
+        }
+      }
     }
   }
-}
 
-  void _goToProfile() {
-    // Cerramos teclado antes de navegar
+  void _goToProfile() async {
     FocusScope.of(context).unfocus();
-    Navigator.push(
+
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) =>
             UserProfileScreen(username: widget.post['username']),
       ),
     );
+    if (mounted && widget.onLikeUpdate != null) {
+      widget.onLikeUpdate!(widget.post['likes']);
+    }
   }
 
   @override

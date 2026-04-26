@@ -17,7 +17,7 @@ class AuthService {
         password: password,
       );
 
-      final String? userId = res.user?.id; // AQUÍ ESTÁ EL UUID SECRETO
+      final String? userId = res.user?.id;
 
       if (userId != null) {
         // 1. Lo guardamos en SQL vinculando el UUID con el nombre
