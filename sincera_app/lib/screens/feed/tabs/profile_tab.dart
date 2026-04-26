@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sincera_app/widgets/user_avatar.dart';
 import '../../../theme.dart';
 import '../../../utils.dart';
 import '../../post_view_screen.dart';
@@ -102,14 +103,7 @@ class _ProfileTabState extends State<ProfileTab>
                             ),
                           );
                         },
-                        leading: CircleAvatar(
-                          backgroundImage: lista[i]['avatar_url'] != null
-                              ? NetworkImage(lista[i]['avatar_url'])
-                              : null,
-                          child: lista[i]['avatar_url'] == null
-                              ? const Icon(Icons.person)
-                              : null,
-                        ),
+                        leading: UserAvatar(avatarUrl: lista[i]['avatar_url']),
                         title: Text(
                           lista[i]['username'] ?? "Usuario",
                           style: const TextStyle(color: Colors.white),
@@ -147,16 +141,7 @@ class _ProfileTabState extends State<ProfileTab>
                   context,
                   widget.profileData!['avatar_url'],
                 ),
-                child: CircleAvatar(
-                  radius: 45,
-                  backgroundColor: SinceraTheme.accentNeon,
-                  backgroundImage: widget.profileData!['avatar_url'] != null
-                      ? NetworkImage(widget.profileData!['avatar_url'])
-                      : null,
-                  child: widget.profileData!['avatar_url'] == null
-                      ? const Icon(Icons.person, size: 50, color: Colors.black)
-                      : null,
-                ),
+                child: UserAvatar(avatarUrl: widget.profileData!['avatar_url']),
               ),
               Positioned(
                 bottom: 0,

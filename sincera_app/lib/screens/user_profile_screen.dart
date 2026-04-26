@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sincera_app/widgets/user_avatar.dart';
 import 'post_view_screen.dart';
 import '../services/api_service.dart';
 import '../theme.dart';
@@ -77,7 +78,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 child: items.isEmpty
                     ? const Center(
                         child: Text(
-                          "LISTA VACÍA",
+                          "No hay usuarios todavía",
                           style: TextStyle(
                             color: Colors.white24,
                             fontWeight: FontWeight.bold,
@@ -100,17 +101,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                 ),
                               );
                             },
-                            leading: CircleAvatar(
-                              backgroundColor: SinceraTheme.accentNeon,
-                              backgroundImage: items[i]['avatar_url'] != null
-                                  ? NetworkImage(items[i]['avatar_url'])
-                                  : null,
-                              child: items[i]['avatar_url'] == null
-                                  ? const Icon(
-                                      Icons.person,
-                                      color: Colors.black,
-                                    )
-                                  : null,
+                            leading: UserAvatar(
+                              avatarUrl: items[i]['avatar_url'],
                             ),
                             title: Text(
                               user,
@@ -157,16 +149,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         Center(
           child: GestureDetector(
             onTap: () => SinceraUtils.verFotoGrande(context, avatar),
-            child: CircleAvatar(
-              radius: 50,
-              backgroundColor: SinceraTheme.accentNeon,
-              backgroundImage: (avatar != null && avatar.isNotEmpty)
-                  ? NetworkImage(avatar)
-                  : null,
-              child: (avatar == null || avatar.isEmpty)
-                  ? const Icon(Icons.person, size: 50, color: Colors.black)
-                  : null,
-            ),
+            child: UserAvatar(avatarUrl: avatar),
           ),
         ),
 

@@ -31,8 +31,12 @@ class UserStatsBar extends StatelessWidget {
   }
 
   Widget _buildStat(String label, String value, List lista) {
+    bool isClickable = label.toLowerCase() != "posts";
+
     return GestureDetector(
-      onTap: () => onStatTap(label, lista),
+      onTap: isClickable
+          ? () => onStatTap(label, lista)
+          : null,
       child: Column(
         children: [
           Text(
