@@ -284,21 +284,21 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           itemCount: posts.length,
           itemBuilder: (context, index) => GestureDetector(
             // En user_profile_screen.dart -> GridView
-onTap: () async {
-  await Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (context) => PostViewScreen(
-        posts: posts,
-        initialIndex: index,
-        currentUsername: myUsername,
-        // Pasamos el estado real de seguimiento del perfil actual
-        isFollowingProfile: profileData?['is_following'] ?? false, 
-      ),
-    ),
-  );
-  _cargarPerfil();
-},
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => PostViewScreen(
+                    posts: posts,
+                    initialIndex: index,
+                    currentUsername: myUsername,
+                    // Pasamos el estado real de seguimiento del perfil actual
+                    isFollowingProfile: profileData?['is_following'] ?? false,
+                  ),
+                ),
+              );
+              _cargarPerfil();
+            },
             child: Image.network(posts[index]['image_url'], fit: BoxFit.cover),
           ),
         ),

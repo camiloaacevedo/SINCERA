@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ApiService {
-  static const String baseUrl = "http://192.168.1.24:8000";
+  static const String baseUrl = "http://192.168.1.29:8000";
 
   static Future<List> fetchGlobalPosts(String? username) async {
     try {
