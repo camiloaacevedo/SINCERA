@@ -17,7 +17,7 @@ class FeedScreen extends StatefulWidget {
 }
 
 class _FeedScreenState extends State<FeedScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   late TabController _tabController;
   String? currentUsername;
   List posts = [];
@@ -25,6 +25,9 @@ class _FeedScreenState extends State<FeedScreen>
   Map<String, dynamic>? profileData;
   bool isLoading = true;
   bool isFollowingLoading = false;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -133,8 +136,19 @@ class _FeedScreenState extends State<FeedScreen>
       if (mounted && data != null) {
         setState(() {
           profileData = data;
-          profileData!['followers_list'] ??= [];
-          profileData!['following_list'] ??= [];
+
+          // --- ESTO ES LO QUE ACTUALIZA LOS BOTONES ---
+          final List followingList = profileData!['following_list'] ?? [];
+          final setFollowed = followingList
+              .map((u) => u['username']?.toString().trim().toLowerCase())
+              .toSet();
+
+          // Actualizamos la propiedad 'is_following' de los posts que ya están cargados
+          for (var post in posts) {
+            String? author = post['username']?.toString().trim().toLowerCase();
+            post['is_following'] = setFollowed.contains(author);
+          }
+
           isLoading = false;
         });
       }
@@ -229,16 +243,22 @@ class _FeedScreenState extends State<FeedScreen>
           ),
           itemCount: photos.length,
           itemBuilder: (context, index) => GestureDetector(
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => PostViewScreen(
-                  posts: photos,
-                  initialIndex: index,
-                  currentUsername: currentUsername,
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => PostViewScreen(
+                    posts: photos,
+                    initialIndex: index,
+                    currentUsername: currentUsername,
+                  ),
                 ),
-              ),
-            ),
+              );
+
+              // Al volver de ver tus propios posts, solo refrescamos la data
+              // para que los contadores (posts, seguidores) se actualicen.
+              _fetchProfileData();
+            },
             child: Image.network(photos[index]['image_url'], fit: BoxFit.cover),
           ),
         ),
@@ -276,16 +296,46 @@ class _FeedScreenState extends State<FeedScreen>
               ],
             )
           : ListView.builder(
+              // Agregamos esto para asegurar que el scroll se mantenga
+              key: PageStorageKey(emptyMessage ?? "list"),
               itemCount: list.length,
               itemBuilder: (context, i) => PostItem(
                 post: list[i],
                 currentUsername: currentUsername,
-                onLikeUpdate: (n) {
+                onLikeUpdate: (n) async {
+                  // 1. ACTUALIZACIÓN INMEDIATA (Likes)
                   setState(() {
                     list[i]['likes'] = n;
                     list[i]['liked'] = !(list[i]['liked'] ?? false);
                   });
+
+                  // 2. BACKEND (Likes)
                   ApiService.toggleLike(list[i]['id'], currentUsername!);
+
+                  // 3. ACTUALIZACIÓN DE SEGUIMIENTO (Al volver de perfil)
+                  // Esto actualiza profileData y la lista de seguidos local
+                  await _fetchProfileData();
+
+                  // Refrescamos visualmente los botones de 'Seguir' en la lista actual
+                  if (profileData != null) {
+                    final List followingList =
+                        profileData!['following_list'] ?? [];
+                    final setFollowed = followingList
+                        .map(
+                          (u) => u['username']?.toString().trim().toLowerCase(),
+                        )
+                        .toSet();
+
+                    setState(() {
+                      for (var post in list) {
+                        String? author = post['username']
+                            ?.toString()
+                            .trim()
+                            .toLowerCase();
+                        post['is_following'] = setFollowed.contains(author);
+                      }
+                    });
+                  }
                 },
               ),
             ),
@@ -294,6 +344,7 @@ class _FeedScreenState extends State<FeedScreen>
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -332,7 +383,6 @@ class _FeedScreenState extends State<FeedScreen>
             followingPosts,
             isFollowingLoading,
             _fetchFollowingPosts,
-            // MENSAJE ORIGINAL CORTO
             emptyMessage: "NO SIGUES A NADIE TODAVÍA.",
           ),
           _buildProfileTab(),

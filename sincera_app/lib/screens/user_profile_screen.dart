@@ -147,16 +147,16 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   Widget _buildBody() {
     final List posts = profileData?['posts'] ?? [];
     final avatar = profileData?['avatar_url'];
+    // Verificamos si ya seguimos al usuario según los datos de la API
+    final bool isFollowing = profileData?['is_following'] ?? false;
 
     return ListView(
       children: [
         const SizedBox(height: 20),
+        // 1. FOTO DE PERFIL
         Center(
           child: GestureDetector(
-            onTap: () => SinceraUtils.verFotoGrande(
-              context,
-              avatar,
-            ), // USANDO LA UTILIDAD
+            onTap: () => SinceraUtils.verFotoGrande(context, avatar),
             child: CircleAvatar(
               radius: 50,
               backgroundColor: SinceraTheme.accentNeon,
@@ -169,7 +169,82 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             ),
           ),
         ),
+
+        const SizedBox(height: 20),
+
+        // 2. BOTÓN DE SEGUIR / SIGUIENDO
+        Center(
+          child: isFollowing
+              ? SizedBox(
+                  width: 150,
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(
+                        color: Colors.white24,
+                      ), // Borde gris
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                    ),
+                    onPressed: () async {
+                      // Lógica para dejar de seguir
+                      await ApiService.unfollowUser(
+                        myUsername!,
+                        widget.username,
+                      );
+
+                      if (mounted) {
+                        // Cartel de confirmación (SnackBar)
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              "Dejaste de seguir a ${widget.username}",
+                            ),
+                            backgroundColor: Colors.grey[900],
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                        _cargarPerfil();
+                      }
+                    },
+                    child: const Text(
+                      "SIGUIENDO",
+                      style: TextStyle(
+                        color: Colors.white60,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ),
+                )
+              : SizedBox(
+                  width: 150,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: SinceraTheme.accentNeon,
+                      foregroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                    ),
+                    onPressed: () async {
+                      await ApiService.followUser(myUsername!, widget.username);
+                      if (mounted) _cargarPerfil();
+                    },
+                    child: const Text(
+                      "SEGUIR",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+        ),
+
         const SizedBox(height: 25),
+
+        // 3. CONTADORES (Stats)
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
@@ -194,7 +269,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             ),
           ],
         ),
+
         const Divider(color: Colors.white10, height: 40),
+
+        // 4. GRID DE FOTOS
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -205,13 +283,22 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           ),
           itemCount: posts.length,
           itemBuilder: (context, index) => GestureDetector(
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) =>
-                    PostViewScreen(posts: posts, initialIndex: index),
-              ),
-            ),
+            // En user_profile_screen.dart -> GridView
+onTap: () async {
+  await Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => PostViewScreen(
+        posts: posts,
+        initialIndex: index,
+        currentUsername: myUsername,
+        // Pasamos el estado real de seguimiento del perfil actual
+        isFollowingProfile: profileData?['is_following'] ?? false, 
+      ),
+    ),
+  );
+  _cargarPerfil();
+},
             child: Image.network(posts[index]['image_url'], fit: BoxFit.cover),
           ),
         ),

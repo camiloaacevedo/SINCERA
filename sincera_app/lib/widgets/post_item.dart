@@ -46,7 +46,9 @@ class _PostItemState extends State<PostItem> {
   @override
   void didUpdateWidget(covariant PostItem oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.post['is_following'] != oldWidget.post['is_following']) {
+    // Si los datos del post cambiaron, forzamos la actualización del botón
+    if (widget.post['is_following'] != oldWidget.post['is_following'] ||
+        widget.post['username'] != oldWidget.post['username']) {
       setState(() {
         isFollowing = widget.post['is_following'] == true;
       });
@@ -101,16 +103,19 @@ class _PostItemState extends State<PostItem> {
     }
   }
 
-  void _goToProfile() {
-    // Cerramos teclado antes de navegar
+  void _goToProfile() async {
     FocusScope.of(context).unfocus();
-    Navigator.push(
+
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) =>
             UserProfileScreen(username: widget.post['username']),
       ),
     );
+    if (mounted && widget.onLikeUpdate != null) {
+      widget.onLikeUpdate!(widget.post['likes']);
+    }
   }
 
   @override
