@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:sincera_app/widgets/user_avatar.dart';
+import 'package:sincera_app/widgets/user_list_modal.dart';
 import '../../../theme.dart';
 import '../../../utils.dart';
-import '../../user_profile_screen.dart';
 import '../../post_view_screen.dart';
+import '../../../widgets/user_stats_bar.dart';
+import '../../../widgets/user_posts_grid.dart';
 
 class ProfileTab extends StatefulWidget {
   final Map<String, dynamic>? profileData;
@@ -25,91 +28,6 @@ class _ProfileTabState extends State<ProfileTab>
   @override
   bool get wantKeepAlive => true;
 
-  // Widget para las estadísticas
-  Widget _buildStat(String label, String value, List lista) {
-    return GestureDetector(
-      onTap: () => _mostrarListaUsuarios(label, lista),
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-        ],
-      ),
-    );
-  }
-
-  // Modal para ver seguidores/siguiendo
-  void _mostrarListaUsuarios(String titulo, List lista) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.black,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(20),
-        height: MediaQuery.of(context).size.height * 0.5,
-        child: Column(
-          children: [
-            Text(
-              titulo.toUpperCase(),
-              style: const TextStyle(
-                color: SinceraTheme.accentNeon,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const Divider(color: Colors.white10, height: 30),
-            Expanded(
-              child: lista.isEmpty
-                  ? const Center(
-                      child: Text(
-                        "No hay usuarios todavía",
-                        style: TextStyle(color: Colors.white24),
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: lista.length,
-                      itemBuilder: (context, i) => ListTile(
-                        onTap: () {
-                          Navigator.pop(context);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => UserProfileScreen(
-                                username: lista[i]['username'],
-                              ),
-                            ),
-                          );
-                        },
-                        leading: CircleAvatar(
-                          backgroundImage: lista[i]['avatar_url'] != null
-                              ? NetworkImage(lista[i]['avatar_url'])
-                              : null,
-                          child: lista[i]['avatar_url'] == null
-                              ? const Icon(Icons.person)
-                              : null,
-                        ),
-                        title: Text(
-                          lista[i]['username'] ?? "Usuario",
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                      ),
-                    ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Modal para opciones de foto (Ahora sí referenciada)
   void _mostrarOpcionesFoto() {
     showModalBottomSheet(
       context: context,
@@ -127,10 +45,7 @@ class _ProfileTabState extends State<ProfileTab>
               "Elegir de la galería",
               style: TextStyle(color: Colors.white),
             ),
-            onTap: () {
-              Navigator.pop(context);
-              // Lógica de galería aquí
-            },
+            onTap: () => Navigator.pop(context),
           ),
           ListTile(
             leading: const Icon(Icons.camera_alt, color: Colors.white),
@@ -138,10 +53,7 @@ class _ProfileTabState extends State<ProfileTab>
               "Tomar foto",
               style: TextStyle(color: Colors.white),
             ),
-            onTap: () {
-              Navigator.pop(context);
-              // Lógica de cámara aquí
-            },
+            onTap: () => Navigator.pop(context),
           ),
           const SizedBox(height: 20),
         ],
@@ -149,10 +61,13 @@ class _ProfileTabState extends State<ProfileTab>
     );
   }
 
+  void _handleStatTap(String titulo, List lista) {
+    UserListModal.show(context, titulo, lista);
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
-
     if (widget.profileData == null) {
       return const Center(
         child: CircularProgressIndicator(color: SinceraTheme.accentNeon),
@@ -165,8 +80,7 @@ class _ProfileTabState extends State<ProfileTab>
       key: const PageStorageKey('profile_scroll'),
       children: [
         const SizedBox(height: 30),
-
-        // DISEÑO DEL AVATAR CON BOTÓN DE EDICIÓN
+        // Avatar Section
         Center(
           child: Stack(
             children: [
@@ -175,26 +89,21 @@ class _ProfileTabState extends State<ProfileTab>
                   context,
                   widget.profileData!['avatar_url'],
                 ),
-                child: CircleAvatar(
+                child: UserAvatar(
+                  avatarUrl: widget.profileData!['avatar_url'],
                   radius: 45,
-                  backgroundColor: SinceraTheme.accentNeon,
-                  backgroundImage: widget.profileData!['avatar_url'] != null
-                      ? NetworkImage(widget.profileData!['avatar_url'])
-                      : null,
-                  child: widget.profileData!['avatar_url'] == null
-                      ? const Icon(Icons.person, size: 50, color: Colors.black)
-                      : null,
+                  iconSize: 45,
                 ),
               ),
               Positioned(
                 bottom: 0,
                 right: 0,
                 child: GestureDetector(
-                  onTap: _mostrarOpcionesFoto, // <--- USO DE LA FUNCIÓN
+                  onTap: _mostrarOpcionesFoto,
                   child: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: const BoxDecoration(
-                      color: SinceraTheme.accentNeon,
+                      color: SinceraTheme.accentOrange,
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
@@ -208,55 +117,40 @@ class _ProfileTabState extends State<ProfileTab>
             ],
           ),
         ),
-
         const SizedBox(height: 25),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _buildStat("Posts", photos.length.toString(), []),
-            _buildStat(
-              "Seguidores",
-              (widget.profileData!['followers'] ?? 0).toString(),
-              widget.profileData!['followers_list'] ?? [],
-            ),
-            _buildStat(
-              "Siguiendo",
-              (widget.profileData!['following_list']?.length ?? 0).toString(),
-              widget.profileData!['following_list'] ?? [],
-            ),
-          ],
+
+        UserStatsBar(
+          postsCount: photos.length.toString(),
+          followersCount: (widget.profileData!['followers'] ?? 0).toString(),
+          followingCount: (widget.profileData!['following_list']?.length ?? 0)
+              .toString(),
+          followersList: widget.profileData!['followers_list'] ?? [],
+          followingList: widget.profileData!['following_list'] ?? [],
+          onStatTap: _handleStatTap,
         ),
+
         const Divider(
           color: Colors.white10,
           height: 40,
           indent: 20,
           endIndent: 20,
         ),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            crossAxisSpacing: 2,
-            mainAxisSpacing: 2,
-          ),
-          itemCount: photos.length,
-          itemBuilder: (context, index) => GestureDetector(
-            onTap: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => PostViewScreen(
-                    posts: photos,
-                    initialIndex: index,
-                    currentUsername: widget.currentUsername,
-                  ),
+
+        UserPostsGrid(
+          photos: photos,
+          onPostTap: (index) async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => PostViewScreen(
+                  posts: photos,
+                  initialIndex: index,
+                  currentUsername: widget.currentUsername,
                 ),
-              );
-              widget.onRefresh();
-            },
-            child: Image.network(photos[index]['image_url'], fit: BoxFit.cover),
-          ),
+              ),
+            );
+            widget.onRefresh();
+          },
         ),
       ],
     );

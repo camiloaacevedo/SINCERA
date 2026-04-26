@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sincera_app/widgets/user_avatar.dart';
 import 'post_view_screen.dart';
+import '../widgets/user_list_modal.dart';
 import '../services/api_service.dart';
 import '../theme.dart';
 import '../utils.dart';
@@ -49,82 +51,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       items = dataRaw['users'] ?? dataRaw['data'] ?? [];
     }
 
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.black,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        maxChildSize: 0.9,
-        expand: false,
-        builder: (_, controller) => Container(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-              Text(
-                titulo,
-                style: const TextStyle(
-                  color: SinceraTheme.accentNeon,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
-              ),
-              const Divider(color: Colors.white10),
-              Expanded(
-                child: items.isEmpty
-                    ? const Center(
-                        child: Text(
-                          "LISTA VACÍA",
-                          style: TextStyle(
-                            color: Colors.white24,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      )
-                    : ListView.builder(
-                        controller: controller,
-                        itemCount: items.length,
-                        itemBuilder: (context, i) {
-                          final user = items[i]['username'] ?? "usuario";
-                          return ListTile(
-                            onTap: () {
-                              Navigator.pop(context);
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      UserProfileScreen(username: user),
-                                ),
-                              );
-                            },
-                            leading: CircleAvatar(
-                              backgroundColor: SinceraTheme.accentNeon,
-                              backgroundImage: items[i]['avatar_url'] != null
-                                  ? NetworkImage(items[i]['avatar_url'])
-                                  : null,
-                              child: items[i]['avatar_url'] == null
-                                  ? const Icon(
-                                      Icons.person,
-                                      color: Colors.black,
-                                    )
-                                  : null,
-                            ),
-                            title: Text(
-                              user,
-                              style: const TextStyle(color: Colors.white),
-                            ),
-                          );
-                        },
-                      ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    UserListModal.show(context, titulo, items);
   }
 
   @override
@@ -157,16 +84,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         Center(
           child: GestureDetector(
             onTap: () => SinceraUtils.verFotoGrande(context, avatar),
-            child: CircleAvatar(
-              radius: 50,
-              backgroundColor: SinceraTheme.accentNeon,
-              backgroundImage: (avatar != null && avatar.isNotEmpty)
-                  ? NetworkImage(avatar)
-                  : null,
-              child: (avatar == null || avatar.isEmpty)
-                  ? const Icon(Icons.person, size: 50, color: Colors.black)
-                  : null,
-            ),
+            child: UserAvatar(avatarUrl: avatar, radius: 45, iconSize: 45),
           ),
         ),
 
@@ -283,22 +201,20 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           ),
           itemCount: posts.length,
           itemBuilder: (context, index) => GestureDetector(
-            // En user_profile_screen.dart -> GridView
-onTap: () async {
-  await Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (context) => PostViewScreen(
-        posts: posts,
-        initialIndex: index,
-        currentUsername: myUsername,
-        // Pasamos el estado real de seguimiento del perfil actual
-        isFollowingProfile: profileData?['is_following'] ?? false, 
-      ),
-    ),
-  );
-  _cargarPerfil();
-},
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => PostViewScreen(
+                    posts: posts,
+                    initialIndex: index,
+                    currentUsername: myUsername,
+                    isFollowingProfile: profileData?['is_following'] ?? false,
+                  ),
+                ),
+              );
+              _cargarPerfil();
+            },
             child: Image.network(posts[index]['image_url'], fit: BoxFit.cover),
           ),
         ),
