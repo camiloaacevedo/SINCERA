@@ -14,26 +14,26 @@ class _UsernameScreenState extends State<UsernameScreen> {
   final TextEditingController _controller = TextEditingController();
 
   Future<void> _saveUsername() async {
-  final String nombre = _controller.text.trim();
-  if (nombre.isEmpty) return;
+    final String nombre = _controller.text.trim();
+    if (nombre.isEmpty) return;
 
-  final bool exito = await ApiService.registerUser(nombre);
+    final bool exito = await ApiService.registerUser(nombre);
 
-  if (exito) {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('username', nombre);
+    if (exito) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('username', nombre);
 
-    if (mounted) {
-      Navigator.pushReplacementNamed(context, '/');
-    }
-  } else {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Error de conexión con el servidor")),
-      );
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/');
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Error de conexión con el servidor")),
+        );
+      }
     }
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -58,12 +58,17 @@ class _UsernameScreenState extends State<UsernameScreen> {
               style: const TextStyle(color: Colors.white, fontSize: 22),
               decoration: InputDecoration(
                 hintText: "tu_usuario",
-                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.2)),
+                hintStyle: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.2),
+                ),
                 enabledBorder: const UnderlineInputBorder(
                   borderSide: BorderSide(color: SinceraTheme.accentNeon),
                 ),
                 focusedBorder: const UnderlineInputBorder(
-                  borderSide: BorderSide(color: SinceraTheme.accentNeon, width: 2),
+                  borderSide: BorderSide(
+                    color: SinceraTheme.accentNeon,
+                    width: 2,
+                  ),
                 ),
               ),
             ),
@@ -74,12 +79,18 @@ class _UsernameScreenState extends State<UsernameScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: SinceraTheme.accentNeon,
                   padding: const EdgeInsets.symmetric(vertical: 18),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
                 onPressed: _saveUsername,
                 child: const Text(
                   "CONTINUAR",
-                  style: TextStyle(color: Colors.black, fontWeight: FontWeight.w900, letterSpacing: 1.5),
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.5,
+                  ),
                 ),
               ),
             ),

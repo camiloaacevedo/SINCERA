@@ -16,7 +16,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _handleLogin() async {
     setState(() => _isLoading = true);
-    
+
     final error = await AuthService.signIn(
       _emailController.text.trim(),
       _passwordController.text.trim(),
@@ -30,7 +30,10 @@ class _LoginScreenState extends State<LoginScreen> {
       } else {
         // Si hay error (ej: contraseña mal), lo mostramos
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $error"), backgroundColor: Colors.redAccent),
+          SnackBar(
+            content: Text("Error: $error"),
+            backgroundColor: Colors.redAccent,
+          ),
         );
       }
     }
@@ -47,28 +50,40 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text("SINCERA", style: SinceraTheme.headingStyle.copyWith(fontSize: 40)),
+                Text(
+                  "SINCERA",
+                  style: SinceraTheme.headingStyle.copyWith(fontSize: 40),
+                ),
                 const SizedBox(height: 10),
-                const Text("Bienvenido de nuevo", style: TextStyle(color: Colors.white54)),
+                const Text(
+                  "Bienvenido de nuevo",
+                  style: TextStyle(color: Colors.white54),
+                ),
                 const SizedBox(height: 50),
-                
+
                 // Campo Email
                 TextField(
                   controller: _emailController,
                   style: const TextStyle(color: Colors.white),
-                  decoration: _buildInputDecoration("Email", Icons.email_outlined),
+                  decoration: _buildInputDecoration(
+                    "Email",
+                    Icons.email_outlined,
+                  ),
                 ),
                 const SizedBox(height: 20),
-                
+
                 // Campo Contraseña
                 TextField(
                   controller: _passwordController,
                   obscureText: true,
                   style: const TextStyle(color: Colors.white),
-                  decoration: _buildInputDecoration("Contraseña", Icons.lock_outline),
+                  decoration: _buildInputDecoration(
+                    "Contraseña",
+                    Icons.lock_outline,
+                  ),
                 ),
                 const SizedBox(height: 40),
-                
+
                 // Botón Entrar
                 SizedBox(
                   width: double.infinity,
@@ -77,16 +92,25 @@ class _LoginScreenState extends State<LoginScreen> {
                     onPressed: _isLoading ? null : _handleLogin,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: SinceraTheme.accentNeon,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
                     ),
-                    child: _isLoading 
-                      ? const CircularProgressIndicator(color: Colors.black)
-                      : const Text("ENTRAR", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16)),
+                    child: _isLoading
+                        ? const CircularProgressIndicator(color: Colors.black)
+                        : const Text(
+                            "ENTRAR",
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 20),
-                
+
                 // Botón ir a Registro
                 TextButton(
                   onPressed: () => Navigator.pushNamed(context, '/register'),
@@ -117,7 +141,7 @@ class _LoginScreenState extends State<LoginScreen> {
         borderSide: const BorderSide(color: SinceraTheme.accentNeon),
       ),
       filled: true,
-      fillColor: Colors.white.withOpacity(0.05),
+      fillColor: Colors.white.withValues(alpha: .05),
     );
   }
 }

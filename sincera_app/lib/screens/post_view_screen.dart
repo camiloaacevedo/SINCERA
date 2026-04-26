@@ -7,10 +7,10 @@ class PostViewScreen extends StatelessWidget {
   final String? currentUsername;
 
   const PostViewScreen({
-    super.key, 
-    required this.posts, 
-    required this.initialIndex, 
-    this.currentUsername
+    super.key,
+    required this.posts,
+    required this.initialIndex,
+    this.currentUsername,
   });
 
   @override
@@ -29,7 +29,8 @@ class PostViewScreen extends StatelessWidget {
           return SingleChildScrollView(
             child: PostItem(
               post: posts[index],
-              currentUsername: currentUsername, // ESTO ES LO QUE OCULTA EL BOTÓN
+              currentUsername:
+                  currentUsername,
             ),
           );
         },

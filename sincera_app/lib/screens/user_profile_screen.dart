@@ -33,7 +33,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   Future<void> _cargarPerfil() async {
     final data = await ApiService.fetchProfile(widget.username, myUsername);
     if (mounted) {
-      print("DATOS RECIBIDOS: $data"); // MIRA ESTO EN TU CONSOLA
+      debugPrint("DATOS RECIBIDOS: $data");
       setState(() {
         profileData = data;
         isLoading = false;
@@ -43,10 +43,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   void _mostrarLista(String titulo, dynamic dataRaw) {
     List items = [];
-    if (dataRaw is List)
+    if (dataRaw is List) {
       items = dataRaw;
-    else if (dataRaw is Map)
+    } else if (dataRaw is Map) {
       items = dataRaw['users'] ?? dataRaw['data'] ?? [];
+    }
 
     showModalBottomSheet(
       context: context,
@@ -181,7 +182,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               "SEGUIDORES",
               (profileData?['followers'] ?? 0).toString(),
               () {
-                // Según tu log, la clave exacta es 'followers_list'
                 _mostrarLista("SEGUIDORES", profileData?['followers_list']);
               },
             ),
@@ -222,10 +222,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   Widget _statItem(String label, String value, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
-      behavior:
-          HitTestBehavior.opaque, // Esto hace que todo el recuadro sea sensible
+      behavior: HitTestBehavior.opaque,
       child: Container(
-        color: Colors.transparent, // Ayuda a la detección de gestos
+        color: Colors.transparent,
         padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
         child: Column(
           children: [

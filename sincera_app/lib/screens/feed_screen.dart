@@ -50,31 +50,6 @@ class _FeedScreenState extends State<FeedScreen>
     await _fetchPosts();
   }
 
-  // --- FUNCIÓN PARA VER LA FOTO AGRANDADA (Bordes redondeados) ---
-  void _verFotoGrande(String? url) {
-    showDialog(
-      context: context,
-      builder: (context) => Center(
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.8,
-          height:
-              MediaQuery.of(context).size.height *
-              0.6, // Más alto que ancho para que sea alargado
-          decoration: BoxDecoration(
-            color: Colors.black,
-            borderRadius: BorderRadius.circular(30),
-            image: url != null
-                ? DecorationImage(image: NetworkImage(url), fit: BoxFit.cover)
-                : null,
-          ),
-          child: url == null
-              ? const Icon(Icons.person, size: 100, color: Colors.white24)
-              : null,
-        ),
-      ),
-    );
-  }
-
   void _mostrarOpcionesFoto() {
     showModalBottomSheet(
       context: context,
@@ -370,8 +345,9 @@ class _FeedScreenState extends State<FeedScreen>
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
     await supabase.auth.signOut();
-    if (mounted)
+    if (mounted) {
       Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+    }
   }
 
   Future<void> _goToCamera() async {
