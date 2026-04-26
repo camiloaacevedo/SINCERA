@@ -101,8 +101,17 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                 ),
                               );
                             },
-                            leading: UserAvatar(
-                              avatarUrl: items[i]['avatar_url'],
+                            leading: CircleAvatar(
+                              backgroundColor: SinceraTheme.accentNeon,
+                              backgroundImage: items[i]['avatar_url'] != null
+                                  ? NetworkImage(items[i]['avatar_url'])
+                                  : null,
+                              child: items[i]['avatar_url'] == null
+                                  ? const Icon(
+                                      Icons.person,
+                                      color: Colors.black,
+                                    )
+                                  : null,
                             ),
                             title: Text(
                               user,

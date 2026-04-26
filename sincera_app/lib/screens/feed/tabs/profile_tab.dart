@@ -103,7 +103,14 @@ class _ProfileTabState extends State<ProfileTab>
                             ),
                           );
                         },
-                        leading: UserAvatar(avatarUrl: lista[i]['avatar_url']),
+                        leading: CircleAvatar(
+                          backgroundImage: lista[i]['avatar_url'] != null
+                              ? NetworkImage(lista[i]['avatar_url'])
+                              : null,
+                          child: lista[i]['avatar_url'] == null
+                              ? const Icon(Icons.person)
+                              : null,
+                        ),
                         title: Text(
                           lista[i]['username'] ?? "Usuario",
                           style: const TextStyle(color: Colors.white),
